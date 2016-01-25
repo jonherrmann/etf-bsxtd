@@ -56,19 +56,22 @@ dependencies {
 	// BaseX
 	compile group: 'org.basex', name: 'basex', version:'7.9'
 
-	// compile group: 'xerces', name: 'xercesImpl', version:'2.11.0.beta'
-    // compile group: 'xml-apis', name: 'xml-apis', version:'1.4.01'
-	// compile group: 'net.sf.saxon', name: 'Saxon-HE', version: '9.6.0-7'
+
+	// Required by BaseX extensions, must be placed in the lib folder because
+	// the extension class loader will not initialize 3rd party libraries correctly
+	compile group: 'xerces', name: 'xercesImpl', version:'2.11.0.beta'
+	compile group: 'xml-apis', name: 'xml-apis', version:'1.4.01'
+	compile('dom4j:dom4j:1.6.1') {
+		exclude group: 'xml-apis'
+	}
+	compile('xalan:xalan:2.7.2') {
+		exclude group: 'xerces'
+		exclude group: 'xml-apis'
+	}
 
 
 	testCompile group: 'junit', name: 'junit', version: '4.11'
 }
-
-/*
-jar {
-	classifier = 'testdriver'
-}
-*/
 
 task sourcesJar(type: Jar, dependsOn: classes) {
 	description = 'Creates jars with the sourcecode'
