@@ -73,6 +73,10 @@ dependencies {
 	testCompile group: 'junit', name: 'junit', version: '4.11'
 }
 
+license.excludes([
+        "**/gen_test_tile*.xml",
+])
+
 task sourcesJar(type: Jar, dependsOn: classes) {
 	description = 'Creates jars with the sourcecode'
 	classifier 'source'
