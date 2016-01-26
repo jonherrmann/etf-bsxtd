@@ -240,7 +240,6 @@ class BasexTestRunTask extends AbstractTestRunTask {
    */
   private String createDatabases(final BasexDbPartitioner partitioner)
       throws IOException, InterruptedException {
-    String skippedFiles = "";
     partitioner.dryRun();
     logInfo(partitioner.getFileCount() +
         " files (" + FileUtils.byteCountToDisplaySize(partitioner.getSize()) + ")"
@@ -254,14 +253,17 @@ class BasexTestRunTask extends AbstractTestRunTask {
     partitioner.createDatabases();
     logInfo("Added " + partitioner.getFileCount() + " files");
     if (!partitioner.getSkippedFiles().isEmpty()) {
-      skippedFiles = "Skipped " + partitioner.getSkippedFiles().size() +
-          " not well formed file(s): " + SUtils.ENDL;
+      final StringBuilder skippedFiles = new StringBuilder();
+      skippedFiles.append("Skipped " + partitioner.getSkippedFiles().size() +
+          " not well formed file(s): " + SUtils.ENDL);
       for (String s : partitioner.getSkippedFiles()) {
-        skippedFiles = s + SUtils.ENDL;
+        skippedFiles.append(s + SUtils.ENDL);
       }
-      logInfo(skippedFiles);
+      logInfo(skippedFiles.toString());
+      return skippedFiles.toString();
     }
-    return skippedFiles;
+    // all files imported
+    return "";
   }
 
   /**
