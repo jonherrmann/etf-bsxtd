@@ -23,7 +23,7 @@ import java.nio.file.Path;
 
 /**
  * A PathFilter and FileFilter implementation which accepts files with GML
- * and XML file endings.
+ * and XML filename endings.
  *
  * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
  */
