@@ -28,20 +28,10 @@ import java.util.Date;
  */
 class BasexTestReport extends AbstractTestReport {
 
-    /*
-    protected BasexTestReport(EID id, String username, URI publicationLocation) {
-        super(id, username, appendixFactory);
-        this.publicationLocation=publicationLocation;
-        this.startTimestamp=new Date();
-    }
-    */
-
   public BasexTestReport(TestReportDto testReport, String usernameOfInitiator) {
     super(testReport.getId(), usernameOfInitiator, testReport.getContainerFactory());
     this.publicationLocation = testReport.getPublicationLocation();
     this.testObject = new BasexTestObject(testReport.getTestObject());
     this.label = testReport.getLabel();
   }
-
-
 }

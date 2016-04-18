@@ -16,6 +16,7 @@
 package de.interactive_instruments.etf.testrunner.basex.xml.validation;
 
 import de.interactive_instruments.IFile;
+import de.interactive_instruments.Releasable;
 import de.interactive_instruments.exceptions.ExcUtils;
 import de.interactive_instruments.io.PathFilter;
 import org.xml.sax.InputSource;
@@ -40,6 +41,7 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.EnumSet;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -49,7 +51,7 @@ import java.util.concurrent.TimeUnit;
  *
  * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
  */
-public class MultiThreadedSchemaValidator {
+public class MultiThreadedSchemaValidator implements Releasable {
 
   private static final int MAX_ERRORS = 1000;
   private static final int MAX_DIR_DEPTH = 5;
@@ -165,7 +167,7 @@ public class MultiThreadedSchemaValidator {
       final XMLReader reader = spf.newSAXParser().getXMLReader();
       final ValidatorHandler vh = schema.newValidatorHandler();
       ValidatorErrorCollector.ValidatorErrorHandler eh =
-          collHandler.newErrorHandler(inputFile.getName());
+          collHandler.newErrorHandler(inputFile);
       vh.setErrorHandler(eh);
       reader.setContentHandler(vh);
       bufferedReader = getRemovedBomReader(inputFile);
@@ -178,6 +180,10 @@ public class MultiThreadedSchemaValidator {
         IFile.closeQuietly(bufferedReader);
       }
     }
+  }
+
+  @Override public void release() {
+    collHandler.release();
   }
 
   /**
@@ -254,8 +260,8 @@ public class MultiThreadedSchemaValidator {
    *
    * @return concatenated error messages
    */
-  final public String getErrors() {
-    return collHandler.getErrors();
+  final public String getErrorMessages() {
+    return collHandler.getErrorMessages();
   }
 
   /**
@@ -266,6 +272,13 @@ public class MultiThreadedSchemaValidator {
   final public int getErrorCount() {
     return collHandler.getErrorCount();
   }
+
+  /**
+   *
+   *
+   * @return
+   */
+  final public Set<File> getInvalidFiles() { return collHandler.getInvalidFiles(); }
 
 }
 

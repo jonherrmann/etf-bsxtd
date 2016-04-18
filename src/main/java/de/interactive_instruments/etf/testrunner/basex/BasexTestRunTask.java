@@ -120,7 +120,6 @@ class BasexTestRunTask extends AbstractTestRunTask {
     final BasexDbPartitioner partitioner =
         new BasexDbPartitioner(maxDbChunkSize, this.taskProgress.getLogger(),
             testDataDirDir.toPath(), this.dbName, filter);
-    // TODO databases as single resources in test object
     String skippedFiles = "";
     if (testRun.isTestObjectResourceUpdateRequired()) {
       logInfo("The test object was just created or the resources of the test object "
@@ -153,13 +152,19 @@ class BasexTestRunTask extends AbstractTestRunTask {
 
     fireRunning();
     // Validate against schema if schema file is set
-    // TODO: make schema file path configurable in property file
     String schemaFilePath = this.testRun.getProperty("Schema_file");
     if (SUtils.isNullOrEmpty(schemaFilePath)) {
-      // zshh fallback
-      final String lodLevel = this.testRun.getProperty("Level_of_Detail");
-      if (!SUtils.isNullOrEmpty(lodLevel)) {
-        schemaFilePath = "schema/citygml/CityGML_LOD" + lodLevel + ".xsd";
+      // STD fallback: check for a schema.xsd named file
+      final String stdSchemaFile = "schema.xsd";
+      if(projDir.secureExpandPathDown(stdSchemaFile).exists()) {
+        schemaFilePath=stdSchemaFile;
+      }else {
+        // project specific fallback
+        // TODO: remove in future
+        final String lodLevel = this.testRun.getProperty("Level_of_Detail");
+        if (!SUtils.isNullOrEmpty(lodLevel)) {
+          schemaFilePath = "schema/citygml/CityGML_LOD" + lodLevel + ".xsd";
+        }
       }
     }
     final MultiThreadedSchemaValidator mtsv;
@@ -170,6 +175,15 @@ class BasexTestRunTask extends AbstractTestRunTask {
       mtsv = new MultiThreadedSchemaValidator(testDataDirDir, filter, schemaFile);
       mtsv.validate();
       logInfo("Validation ended with " + mtsv.getErrorCount() + " error(s)");
+      if(mtsv.getErrorCount() > 0) {
+        logInfo(
+            "Non-schema-compliant files can not be tested and are therefore excluded from further testing:");
+        for (final File file : mtsv.getInvalidFiles()) {
+          logInfo(" - " + file.getName());
+          new Delete(file.getName()).execute(ctx);
+        }
+        new Flush().execute(ctx);
+      }
     } else {
       mtsv = null;
       logInfo("Skipping validation due to no schema file was set.");
@@ -201,7 +215,7 @@ class BasexTestRunTask extends AbstractTestRunTask {
     final String validationErrors;
     if (mtsv != null) {
       // Add Schema errors + not well-formed xml file errors (if applicable)
-      validationErrors = skippedFiles + mtsv.getErrors();
+      validationErrors = skippedFiles + mtsv.getErrorMessages();
     } else if (!SUtils.isNullOrEmpty(skippedFiles)) {
       // No schema file found, but not well-formed files
       validationErrors = skippedFiles;
@@ -210,6 +224,7 @@ class BasexTestRunTask extends AbstractTestRunTask {
       validationErrors = "";
     }
     proc.bind("validationErrors", validationErrors);
+    mtsv.release();
 
     setUserParameters();
 
@@ -243,7 +258,7 @@ class BasexTestRunTask extends AbstractTestRunTask {
     partitioner.dryRun();
     logInfo(partitioner.getFileCount() +
         " files (" + FileUtils.byteCountToDisplaySize(partitioner.getSize()) + ")"
-        + " will be added to " + partitioner.getDbCount() + " test databases");
+        + " will be added to " + partitioner.getDbCount() + " test database(s)");
     getBsxTaskProgress().advance();
     if (partitioner.getDbCount() > 1) {
       logInfo("This might take a while...");

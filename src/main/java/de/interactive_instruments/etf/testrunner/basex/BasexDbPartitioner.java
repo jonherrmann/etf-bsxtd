@@ -144,7 +144,7 @@ class BasexDbPartitioner {
         fileCount++;
         size += attrs.size();
       } catch (BaseXException bsxEx) {
-        // Skip not wellformed files
+        // Skip not well-formed files
         logger.info("Data import of file " + file.toString() + " failed : " + bsxEx.getMessage());
         skippedFiles.add(file.getFileName().toString());
       }
@@ -335,7 +335,7 @@ class BasexDbPartitioner {
   }
 
   /**
-   * Number of skipped files (not excluded!).
+   * List of skipped files (not excluded!).
    *
    * @return number of skipped files
    */

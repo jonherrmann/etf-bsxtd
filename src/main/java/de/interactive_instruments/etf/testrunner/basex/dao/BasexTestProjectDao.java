@@ -117,7 +117,7 @@ public class BasexTestProjectDao extends AbstractTestProjectDao
   }
 
   /**
-   * Defautl constructor.
+   * Default constructor.
    */
   public BasexTestProjectDao() {
     this.assembler = new ProjectAssembler();
@@ -127,6 +127,8 @@ public class BasexTestProjectDao extends AbstractTestProjectDao
   }
 
   /**
+   * Create Dto from file
+   *
    * @param projFile      project file
    * @param resourceTypes the supported resource types
    *
@@ -186,7 +188,7 @@ public class BasexTestProjectDao extends AbstractTestProjectDao
             new VersionDataDto(new Date(projFile.lastModified()), new Date(projFile.lastModified()),
                 new Version(), hash)).
         setLabel(name).
-        setId(new EID(id)).
+        setId(EidFactory.getDefault().createFromStrAsUUID(id)).
         setTestDriverId("BSX").
         setUri(projFile.toURI()).
         setProperties(properties).

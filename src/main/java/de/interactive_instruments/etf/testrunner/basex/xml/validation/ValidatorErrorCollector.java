@@ -20,7 +20,9 @@ import org.xml.sax.ErrorHandler;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
+import java.io.File;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 
@@ -29,12 +31,12 @@ import java.util.concurrent.ConcurrentSkipListMap;
  *
  * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
  */
-class ValidatorErrorCollector {
+class ValidatorErrorCollector implements Releasable {
 
   private final StringBuilder sb = new StringBuilder();
   private int errors = 0;
   private final int maxErrors;
-  private final ConcurrentMap<String, Integer> errorsPerFile = new ConcurrentSkipListMap<>();
+  private final ConcurrentMap<File, Integer> errorsPerFile = new ConcurrentSkipListMap<>();
 
 
   /**
@@ -54,15 +56,15 @@ class ValidatorErrorCollector {
    *
    * @return concatenated error messages
    */
-  public synchronized String getErrors() {
+  public String getErrorMessages() {
     if (!errorsPerFile.isEmpty()) {
 
       int errorsPerFileCounter = 0;
-      for (Map.Entry<String, Integer> e : errorsPerFile.entrySet()) {
+      for (Map.Entry<File, Integer> e : errorsPerFile.entrySet()) {
         if (errorsPerFileCounter < maxErrors) {
           sb.append(e.getValue());
           sb.append(" errors in file ");
-          sb.append(e.getKey());
+          sb.append(e.getKey().getName());
           errorsPerFileCounter++;
         } else {
           sb.append((errorsPerFileCounter - maxErrors));
@@ -70,12 +72,13 @@ class ValidatorErrorCollector {
           break;
         }
       }
-
-      errorsPerFile.clear();
     }
-
     return sb.toString() + (errors < maxErrors ? "" : System.lineSeparator() +
         (errors - maxErrors) + " additional error messages were skipped!");
+  }
+
+  public Set<File> getInvalidFiles() {
+    return errorsPerFile.keySet();
   }
 
   /**
@@ -83,7 +86,7 @@ class ValidatorErrorCollector {
    *
    * @return
    */
-  public synchronized int getErrorCount() {
+  public int getErrorCount() {
     return errors;
   }
 
@@ -96,22 +99,23 @@ class ValidatorErrorCollector {
     this.maxErrors = maxErrors;
   }
 
+
   /**
    * Inner error handler SAX errors.
    */
   class ValidatorErrorHandler implements ErrorHandler, Releasable {
 
-    private final String filename;
-    private int fileErrors;
+    private final File file;
+    private int errorsInFile;
     private final StringBuilder lSb = new StringBuilder();
 
-    ValidatorErrorHandler(final String filename) {
-      this.filename = filename;
+    ValidatorErrorHandler(final File file) {
+      this.file = file;
     }
 
     private void logError(String severity, SAXParseException e) {
-      ++fileErrors;
-      lSb.append(severity + " in file " + filename +
+      ++errorsInFile;
+      lSb.append(severity + " in file " + file.getName() +
           " line " + e.getLineNumber() +
           " column " + e.getColumnNumber() +
           " : " + System.lineSeparator() + e.toString() +
@@ -131,24 +135,24 @@ class ValidatorErrorCollector {
     }
 
     @Override public void release() {
-      if (fileErrors > 0) {
+      if (errorsInFile > 0) {
         collectError(lSb.toString());
-        errorsPerFile.put(filename, fileErrors);
+        errorsPerFile.put(file, errorsInFile);
       }
     }
   }
 
-
-  ;
-
+  @Override public void release() {
+    errorsPerFile.clear();
+  }
   /**
    * Creates a new error handler
    *
-   * @param filename name of the file which is checked
+   * @param file file which is checked
    *
    * @return a SAX error handler
    */
-  public ValidatorErrorHandler newErrorHandler(final String filename) {
-    return new ValidatorErrorHandler(filename);
+  public ValidatorErrorHandler newErrorHandler(final File file) {
+    return new ValidatorErrorHandler(file);
   }
 }

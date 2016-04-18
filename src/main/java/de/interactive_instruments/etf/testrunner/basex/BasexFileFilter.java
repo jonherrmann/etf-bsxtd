@@ -22,8 +22,8 @@ import java.io.FileFilter;
 import java.nio.file.Path;
 
 /**
- * A PathFilter and FileFilter implementation which does not accept GML
- * and XML files.
+ * A PathFilter and FileFilter implementation which accepts files with GML
+ * and XML file endings.
  *
  * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
  */

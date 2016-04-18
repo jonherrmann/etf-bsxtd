@@ -45,9 +45,13 @@ public class BasexTestRunTaskFactory implements TestRunTaskFactory {
   final public void init()
       throws ConfigurationException, InvalidStateTransitionException, InitializationException {
     configProperties.expectAllRequiredPropertiesSet();
+
+
     if (configProperties.getProperty("org.basex.path") != null) {
       System.setProperty("org.basex.path", configProperties.getProperty("org.basex.path"));
     }
+
+
     testProjectStore = new BasexTestProjectDao();
     testProjectStore.getConfigurationProperties().setPropertiesFrom(configProperties, true);
     testProjectStore.init();
