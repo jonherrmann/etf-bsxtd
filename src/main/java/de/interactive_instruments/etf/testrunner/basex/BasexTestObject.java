@@ -1,11 +1,11 @@
 /**
- * Copyright 2016 interactive instruments GmbH
+ * Copyright 2010-2016 interactive instruments GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,13 +23,13 @@ import de.interactive_instruments.etf.model.plan.AbstractTestObject;
  */
 class BasexTestObject extends AbstractTestObject {
 
-  BasexTestObject(TestObjectDto dto) {
-    this.label = dto.getLabel();
-    this.id = dto.getId();
-    this.type = TestObjectType.TEXT;
-    this.description = dto.getDescription();
-    this.properties = dto.getProperties();
-    this.versionData = dto.getVersionData().toVersionData();
-    this.resources = dto.getResourcesAsModelItemMap();
-  }
+	BasexTestObject(TestObjectDto dto) {
+		this.label = dto.getLabel();
+		this.id = dto.getId();
+		this.type = TestObjectType.TEXT;
+		this.description = dto.getDescription();
+		this.properties = dto.getProperties();
+		this.versionData = dto.getVersionData().toVersionData();
+		this.resources = dto.getResourcesAsModelItemMap();
+	}
 }

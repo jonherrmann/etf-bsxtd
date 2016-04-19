@@ -1,11 +1,11 @@
 /**
- * Copyright 2016 interactive instruments GmbH
+ * Copyright 2010-2016 interactive instruments GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,11 +15,11 @@
  */
 package de.interactive_instruments.etf.testrunner.basex;
 
-import de.interactive_instruments.io.PathFilter;
-
 import java.io.File;
 import java.io.FileFilter;
 import java.nio.file.Path;
+
+import de.interactive_instruments.io.PathFilter;
 
 /**
  * A PathFilter and FileFilter implementation which accepts files with GML
@@ -29,23 +29,25 @@ import java.nio.file.Path;
  */
 class BasexFileFilter implements FileFilter, PathFilter {
 
-  private final FileFilter ff;
+	private final FileFilter ff;
 
-  public BasexFileFilter(FileFilter ff) {
-    this.ff = ff;
-  }
+	public BasexFileFilter(FileFilter ff) {
+		this.ff = ff;
+	}
 
-  public BasexFileFilter() {
-    ff = null;
-  }
+	public BasexFileFilter() {
+		ff = null;
+	}
 
-  @Override public boolean accept(File pathname) {
-    final String p = pathname.getName().toUpperCase();
-    return '.' != p.charAt(0) && (p.endsWith(".XML") || p.endsWith(".GML"))
-        && (ff == null || ff.accept(pathname));
-  }
+	@Override
+	public boolean accept(File pathname) {
+		final String p = pathname.getName().toUpperCase();
+		return '.' != p.charAt(0) && (p.endsWith(".XML") || p.endsWith(".GML")) && (ff == null || ff
+				.accept(pathname));
+	}
 
-  @Override public boolean accept(Path path) {
-    return accept(path.toFile());
-  }
+	@Override
+	public boolean accept(Path path) {
+		return accept(path.toFile());
+	}
 }
