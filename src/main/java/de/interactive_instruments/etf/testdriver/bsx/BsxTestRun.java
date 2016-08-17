@@ -13,19 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package de.interactive_instruments.etf.testrunner.basex;
+package de.interactive_instruments.etf.testdriver.bsx;
 
-public final class BsxConstants {
+import java.util.List;
 
-	private BsxConstants() {}
+import de.interactive_instruments.etf.testengine.TestRun;
 
-	public static final String PROJECT_SUFFIX = "-basex.xq";
+/**
+ * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
+ */
+public class BsxTestRun implements TestRun {
 
-	public static final String PROJECT_CHECK_FILE_SUFFIX = "-bsxpc.xq";
+	private final List<BsxTestTask> bsxTestTasks;
 
-	public static final String ETF_TESTDB_PREFIX = "etf-tdb-";
+	public BsxTestRun(final List<BsxTestTask> bsxTestTasks) {
+		this.bsxTestTasks = bsxTestTasks;
+	}
 
-	public static final String PROJECT_DIR_KEY = "etf.projects.dir";
-
-	public static final String DB_MAX_CHUNK_SIZE = "etf.testdrivers.bsx.db.chunk.max.size";
+	@Override
+	public List<BsxTestTask> getTestTasks() {
+		return bsxTestTasks;
+	}
 }

@@ -13,20 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package de.interactive_instruments.etf.testrunner.basex;
+package de.interactive_instruments.etf.testdriver.bsx;
 
-import de.interactive_instruments.etf.dal.dto.result.TestReportDto;
-import de.interactive_instruments.etf.model.result.AbstractTestReport;
+import java.util.UUID;
+
+import de.interactive_instruments.etf.testengine.Task;
+import de.interactive_instruments.etf.testengine.TaskPoolRegistry;
+import de.interactive_instruments.etf.testengine.TaskProgress;
 
 /**
+ * This interface is implemented by runnable objects.
+ *
+ * The interface is intentionally separated from the TaskProgress interface,
+ * so that a Client that uses the registry does not have direct access to
+ * the thread!
+ *
  * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
+ *
+ * @see TaskPoolRegistry
  */
-class BasexTestReport extends AbstractTestReport {
+public interface TaskWithProgressIndication<R> extends Task<R> {
 
-	public BasexTestReport(TestReportDto testReport, String usernameOfInitiator) {
-		super(testReport.getId(), usernameOfInitiator, testReport.getContainerFactory());
-		this.publicationLocation = testReport.getPublicationLocation();
-		this.testObject = new BasexTestObject(testReport.getTestObject());
-		this.label = testReport.getLabel();
-	}
+	UUID getID();
+
+	TaskProgress<R> getTaskProgress();
 }

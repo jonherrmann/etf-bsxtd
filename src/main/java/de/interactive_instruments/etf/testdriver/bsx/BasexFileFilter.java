@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package de.interactive_instruments.etf.testrunner.basex;
+package de.interactive_instruments.etf.testdriver.bsx;
 
 import java.io.File;
 import java.io.FileFilter;

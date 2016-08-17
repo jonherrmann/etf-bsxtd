@@ -13,28 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package de.interactive_instruments.etf.testrunner.basex;
+package de.interactive_instruments.etf.testdriver.bsx;
 
-import org.basex.core.InfoListener;
-import org.basex.core.Proc;
 import org.basex.query.QueryProcessor;
 
-import de.interactive_instruments.concurrent.AbstractTaskProgress;
-import de.interactive_instruments.etf.model.result.TestReport;
+import de.interactive_instruments.etf.dal.dto.Dto;
+import de.interactive_instruments.etf.testengine.AbstractTaskProgress;
 
 /**
  * Holds the progress of the test run task.
  *
  * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
  */
-class BasexTaskProgress extends AbstractTaskProgress<TestReport>implements InfoListener {
+class BsxTaskProgress extends AbstractTaskProgress<Dto> {
 
-	private Proc proc;
+	private QueryProcessor proc;
 
 	/**
 	 * Default constructor.
 	 */
-	public BasexTaskProgress() {
+	public BsxTaskProgress() {
 		remainingSteps = 100;
 		stepsCompleted = 1;
 	}
@@ -46,20 +44,14 @@ class BasexTaskProgress extends AbstractTaskProgress<TestReport>implements InfoL
 	 */
 	void setQueryProc(QueryProcessor proc) {
 		this.proc = proc;
-		proc.listen(this);
-	}
-
-	@Override
-	public void info(String info) {
-		this.logger.info(info);
 	}
 
 	@Override
 	public int getCurrentStepsCompleted() {
 		if (this.getState() == STATE.COMPLETED) {
 			return this.remainingSteps;
-		} else if (proc != null && proc.progress() != 0) {
-			return (int) (proc.progress() * 100);
+		} else if (proc != null && proc.progressInfo() != 0) {
+			return (int) (proc.progressInfo() * 100);
 		}
 		return stepsCompleted;
 	}

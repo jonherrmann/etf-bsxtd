@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package de.interactive_instruments.etf.testrunner.basex.dao;
+package de.interactive_instruments.etf.testdriver.bsx;
 
 import java.io.File;
 import java.io.IOException;
@@ -22,35 +22,32 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.WatchEvent;
 import java.util.*;
+import java.util.concurrent.ConcurrentMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.googlecode.concurrentlinkedhashmap.ConcurrentLinkedHashMap;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import de.interactive_instruments.Configurable;
 import de.interactive_instruments.IFile;
+import de.interactive_instruments.Releasable;
 import de.interactive_instruments.UriUtils;
-import de.interactive_instruments.Version;
-import de.interactive_instruments.concurrent.InvalidStateTransitionException;
 import de.interactive_instruments.etf.EtfConstants;
-import de.interactive_instruments.etf.dal.ProjectDtoFileBuilder;
-import de.interactive_instruments.etf.dal.ProjectFileBuildVisitor;
-import de.interactive_instruments.etf.dal.dao.AbstractTestProjectDao;
-import de.interactive_instruments.etf.dal.dto.item.VersionDataDto;
-import de.interactive_instruments.etf.dal.dto.plan.TestProjectDto;
-import de.interactive_instruments.etf.dal.dto.plan.TestProjectDtoBuilder;
-import de.interactive_instruments.etf.driver.TestProjectUnavailable;
-import de.interactive_instruments.etf.model.item.EID;
-import de.interactive_instruments.etf.model.item.EidDefaultMap;
-import de.interactive_instruments.etf.model.item.EidFactory;
-import de.interactive_instruments.etf.model.plan.AbstractTestObjectResourceType;
-import de.interactive_instruments.etf.model.plan.TestObjectResourceType;
-import de.interactive_instruments.etf.testrunner.basex.BsxConstants;
-import de.interactive_instruments.exceptions.ExcUtils;
-import de.interactive_instruments.exceptions.InitializationException;
-import de.interactive_instruments.exceptions.ObjectWithIdNotFoundException;
-import de.interactive_instruments.exceptions.StoreException;
+import de.interactive_instruments.etf.dal.dto.capabilities.TestObjectTypeDto;
+import de.interactive_instruments.etf.dal.dto.test.ExecutableTestSuiteDto;
+import de.interactive_instruments.etf.model.*;
+import de.interactive_instruments.etf.testengine.ExecutableTestSuiteDtoFileBuilder;
+import de.interactive_instruments.etf.testengine.ExecutableTestSuiteUnavailable;
+import de.interactive_instruments.etf.testengine.ProjectFileBuildVisitor;
+import de.interactive_instruments.exceptions.*;
 import de.interactive_instruments.exceptions.config.ConfigurationException;
 import de.interactive_instruments.io.FileChangeListener;
 import de.interactive_instruments.io.RecursiveDirWatcher;
 import de.interactive_instruments.properties.ConfigProperties;
+import de.interactive_instruments.properties.ConfigPropertyHolder;
 import de.interactive_instruments.properties.Properties;
 
 /**
@@ -58,12 +55,28 @@ import de.interactive_instruments.properties.Properties;
  *
  * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
  */
-public class BasexTestProjectDao extends AbstractTestProjectDao
-		implements FileChangeListener, ProjectDtoFileBuilder {
+public class BsxExecutableTestSuiteHolder implements Configurable, Releasable, FileChangeListener, ExecutableTestSuiteDtoFileBuilder {
+
+	private final EidMap<TestObjectTypeDto> testObjectTypes = new DefaultEidMap<TestObjectTypeDto>() {
+		{
+			final TestObjectTypeDto testObjectTypeDto = new TestObjectTypeDto();
+			testObjectTypeDto.setLabel("Basic BsxType");
+			testObjectTypeDto.setId(EidFactory.getDefault().createAndPreserveStr("e1d4a306-7a78-4a3b-ae2d-cf5f0810853e"));
+			testObjectTypeDto.setDescription("Basic BsxType");
+			put(testObjectTypeDto.getId(), testObjectTypeDto);
+		}
+	};
 
 	public final static String PROJECT_SUFFIX = "-basex.xq";
+	private final ConfigProperties configProperties;
 
 	private IFile projectDir;
+
+	protected final ConcurrentMap<EID, ExecutableTestSuiteDto> cache = new ConcurrentLinkedHashMap.Builder()
+			.maximumWeightedCapacity(45)
+			.build();
+
+	protected final Logger logger = LoggerFactory.getLogger(getClass());
 
 	/**
 	 * Only String values are allowed!
@@ -87,14 +100,14 @@ public class BasexTestProjectDao extends AbstractTestProjectDao
 				logger.error("Failed to walk file tree: " + e.getMessage());
 			}
 		});
-		cache.values().removeIf(p -> !UriUtils.exists(p.getUri()));
+		cache.values().removeIf(p -> !new File(p.getLocalPath()).exists());
 	}
 
 	@Override
-	public TestProjectDto createProjectDto(File projectFile) {
+	public ExecutableTestSuiteDto createExecutableTestSuiteDto(File projectFile) {
 		try {
 			logger.info("Registering project: {}", projectFile.getAbsolutePath());
-			return buildProjectDto(new IFile(projectFile), this.resourceTypes);
+			return buildProjectDto(new IFile(projectFile));
 		} catch (final StoreException e) {
 			logger.error("Failed to create test project ({}): {}", projectFile.getAbsolutePath(),
 					e.getMessage());
@@ -108,40 +121,23 @@ public class BasexTestProjectDao extends AbstractTestProjectDao
 	}
 
 	/**
-	 * Xml document resource type
-	 */
-	static class XmlDocObjectResourceType extends AbstractTestObjectResourceType {
-
-		XmlDocObjectResourceType() {
-			super("data", "Path to XML data", "file",
-					Pattern.compile(".*", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE),
-					Pattern.compile(".*.(xml).*", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE));
-		}
-	}
-
-	/**
 	 * Default constructor.
 	 */
-	public BasexTestProjectDao() {
-		this.assembler = new ProjectAssembler();
+	public BsxExecutableTestSuiteHolder() {
 		this.configProperties = new ConfigProperties(EtfConstants.ETF_PROJECTS_DIR);
-		final XmlDocObjectResourceType xmlRes = new XmlDocObjectResourceType();
-		this.resourceTypes.put(xmlRes.getId(), xmlRes);
 	}
 
 	/**
 	 * Create Dto from file
 	 *
 	 * @param projFile      project file
-	 * @param resourceTypes the supported resource types
 	 *
 	 * @return BaseX test project dto
 	 *
 	 * @throws StoreException error reading project file
 	 */
-	private TestProjectDto buildProjectDto(IFile projFile,
-			final Map<EID, TestObjectResourceType> resourceTypes) throws StoreException {
-		final String id = EidFactory.getDefault().createFromStrAsUUID(projFile.toURI().toString()).toString();
+	private ExecutableTestSuiteDto buildProjectDto(IFile projFile) throws StoreException {
+		final String id = EidFactory.getDefault().createUUID(projFile.toURI().toString()).toString();
 		final String name = projFile.getName().substring(0, projFile.getName().indexOf(PROJECT_SUFFIX));
 
 		byte[] hash;
@@ -149,11 +145,11 @@ public class BasexTestProjectDao extends AbstractTestProjectDao
 			hash = UriUtils.hashFromTimestampOrContent(projFile.toURI()).getBytes(StandardCharsets.UTF_8);
 		} catch (IOException e) {
 			hash = new byte[0];
-			ExcUtils.supress(e);
+			ExcUtils.suppress(e);
 		}
 
-		// Extract properties from project file
-		final Properties properties = new Properties();
+		// Extract parameters from project file
+		final ParameterSet parameters = new ParameterSet();
 		try {
 			projFile.expectFileIsReadable();
 			final IFile propertyCheckFile = new IFile(projFile.getParentFile(),
@@ -165,13 +161,14 @@ public class BasexTestProjectDao extends AbstractTestProjectDao
 				matcher = PROPERTY_SEARCH_PATTERN.matcher(projFile.readContent());
 			}
 			while (matcher.find()) {
-				properties.setProperty(matcher.group(1), matcher.group(2));
+				parameters.addParameter(matcher.group(1), matcher.group(2));
 			}
 		} catch (IOException e) {
-			throw new TestProjectUnavailable(name);
+			throw new ExecutableTestSuiteUnavailable(name);
 		}
 
 		// Check for a property file
+		final Properties properties = new Properties();
 		final IFile propertyFile = new IFile(projFile.getParentFile(), projFile.getName()
 				.replace(PROJECT_SUFFIX, EtfConstants.ETF_TESTPROJECT_PROPERTY_FILE_SUFFIX));
 		if (propertyFile.exists()) {
@@ -182,39 +179,31 @@ public class BasexTestProjectDao extends AbstractTestProjectDao
 						"Failed to read custom test project property file: " + e.getMessage());
 			}
 		}
+		// todo properties
 
-		final TestProjectDtoBuilder builder = new TestProjectDtoBuilder().setVersion(
-				new VersionDataDto(new Date(projFile.lastModified()), new Date(projFile.lastModified()),
-						new Version(), hash))
-				.setLabel(name).setId(EidFactory.getDefault().createFromStrAsUUID(id)).setTestDriverId("BSX").setUri(projFile.toURI()).setProperties(properties).setSupportedResourceTypes(new EidDefaultMap<TestObjectResourceType>() {
-					{
-						final TestObjectResourceType res = resourceTypes.get(EidFactory.getDefault().createFromStrAsStr("data"));
-						if (res == null) {
-							throw new StoreException("TestObjectResourceType with ID \"data\" not found");
-						}
-						put(res.getId(), res);
-					}
-				});
+		final ExecutableTestSuiteDto etsDto = new ExecutableTestSuiteDto();
+		etsDto.setVersionFromStr("1.0.0");
+		etsDto.setLastUpdateDate(new Date(projFile.lastModified()));
+		etsDto.setCreationDate(new Date(projFile.lastModified()));
+		etsDto.setItemHash(hash);
+		etsDto.setLabel(name);
+		// todo? etsDto.setId(EidFactory.getDefault().createUUID(id));
+		etsDto.setId(EidFactory.getDefault().createUUID(name));
+		etsDto.setLocalPath(projFile.toURI().toString());
+		etsDto.setParameterSet(parameters);
+		// etsDto.setProperties(properties);
+		etsDto.setSupportedTestObjectTypes(testObjectTypes.asList());
+
 		if (properties.hasProperty(EtfConstants.ETF_DESCRIPTION_PK)) {
-			builder.setDescription(properties.getProperty(EtfConstants.ETF_DESCRIPTION_PK));
+			etsDto.setDescription(properties.getProperty(EtfConstants.ETF_DESCRIPTION_PK));
 			properties.removeProperty(EtfConstants.ETF_DESCRIPTION_PK);
 		}
-		return builder.createTestProjectDto();
+		etsDto.ensureValid();
+		return etsDto;
 	}
 
 	@Override
-	public void delete(EID id) throws StoreException, ObjectWithIdNotFoundException {
-		throw new StoreException("Unimplemented");
-	}
-
-	@Override
-	public void update(TestProjectDto dto)
-			throws StoreException, ObjectWithIdNotFoundException {
-		throw new StoreException("Unimplemented");
-	}
-
-	@Override
-	public void doInit()
+	public void init()
 			throws ConfigurationException, InitializationException, InvalidStateTransitionException {
 		if (initialized == true) {
 			throw new InvalidStateTransitionException("Already initialized");
@@ -241,28 +230,34 @@ public class BasexTestProjectDao extends AbstractTestProjectDao
 	}
 
 	@Override
-	public List<TestProjectDto> getAll() throws StoreException {
-		return new ArrayList<>(cache.values());
+	public boolean isInitialized() {
+		return true;
 	}
 
 	@Override
-	public TestProjectDto getDtoByName(String name) throws StoreException {
-		for (final TestProjectDto dto : cache.values()) {
-			if (dto.getLabel().equals(name)) {
-				return dto;
-			}
-		}
-		return null;
-	}
-
-	@Override
-	public TestProjectDto cacheMissGetDtoById(EID id) throws StoreException {
-		return null;
-	}
-
-	@Override
-	public void doRelease() {
+	public void release() {
 		this.cache.clear();
 		this.watcher.release();
+	}
+
+	@Override
+	public ConfigPropertyHolder getConfigurationProperties() {
+		return configProperties;
+	}
+
+	Collection<ExecutableTestSuiteDto> getExecutableTestSuites() {
+		return cache.values();
+	}
+
+	ExecutableTestSuiteDto getExecutableTestSuiteById(final EID id) {
+		return cache.get(id);
+	}
+
+	Collection<TestObjectTypeDto> getTestObjectTypes() {
+		return testObjectTypes.values();
+	}
+
+	TestObjectTypeDto getTestObjectTypeById(final EID id) {
+		return testObjectTypes.get(id);
 	}
 }

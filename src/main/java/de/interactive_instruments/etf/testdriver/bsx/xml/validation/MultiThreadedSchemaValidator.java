@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package de.interactive_instruments.etf.testrunner.basex.xml.validation;
+package de.interactive_instruments.etf.testdriver.bsx.xml.validation;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -166,7 +166,7 @@ public class MultiThreadedSchemaValidator implements Releasable {
 			reader.parse(new InputSource(bufferedReader));
 			eh.release();
 		} catch (Exception e) {
-			ExcUtils.supress(e);
+			ExcUtils.suppress(e);
 		} finally {
 			if (bufferedReader != null) {
 				IFile.closeQuietly(bufferedReader);

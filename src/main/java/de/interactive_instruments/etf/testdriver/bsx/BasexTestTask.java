@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package de.interactive_instruments.etf.testrunner.basex;
+package de.interactive_instruments.etf.testdriver.bsx;
 
 import java.io.File;
 import java.io.IOException;
@@ -26,19 +26,22 @@ import org.basex.core.Context;
 import org.basex.core.cmd.*;
 import org.basex.query.QueryException;
 import org.basex.query.QueryProcessor;
+import org.basex.query.value.Value;
 import org.xml.sax.SAXException;
 
 import de.interactive_instruments.IFile;
 import de.interactive_instruments.SUtils;
-import de.interactive_instruments.concurrent.InvalidStateTransitionException;
-import de.interactive_instruments.etf.driver.AbstractTestRunTask;
-import de.interactive_instruments.etf.model.item.EidFactory;
-import de.interactive_instruments.etf.model.plan.TestRun;
-import de.interactive_instruments.etf.model.result.AbstractTestReport;
-import de.interactive_instruments.etf.model.result.TestReport;
-import de.interactive_instruments.etf.testrunner.basex.xml.validation.MultiThreadedSchemaValidator;
+import de.interactive_instruments.etf.dal.dto.Dto;
+import de.interactive_instruments.etf.dal.dto.run.TestRunDto;
+import de.interactive_instruments.etf.dal.dto.run.TestTaskDto;
+import de.interactive_instruments.etf.model.EidFactory;
+import de.interactive_instruments.etf.testdriver.bsx.xml.validation.MultiThreadedSchemaValidator;
+import de.interactive_instruments.etf.testengine.AbstractTestTask;
 import de.interactive_instruments.exceptions.ExcUtils;
+import de.interactive_instruments.exceptions.InitializationException;
 import de.interactive_instruments.exceptions.InvalidParameterException;
+import de.interactive_instruments.exceptions.InvalidStateTransitionException;
+import de.interactive_instruments.exceptions.config.ConfigurationException;
 import de.interactive_instruments.io.PathFilter;
 
 // Version 8
@@ -49,10 +52,11 @@ import de.interactive_instruments.io.PathFilter;
  *
  * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
  */
-class BasexTestRunTask extends AbstractTestRunTask {
+class BasexTestTask<T extends Dto> extends AbstractTestTask<T> {
 
 	private final String dbName;
 	private final Context ctx;
+	private final IFile dsDir;
 	private QueryProcessor proc;
 	// The basex project file
 	private final IFile projectFile;
@@ -62,56 +66,48 @@ class BasexTestRunTask extends AbstractTestRunTask {
 	/**
 	 * Default constructor.
 	 *
-	 * @param testRun test run
-	 * @param projectFile test project file
 	 * @param maxDbChunkSize maximum size of one database chunk
 	 * @throws IOException I/O error
 	 * @throws QueryException database error
 	 */
-	public BasexTestRunTask(TestRun testRun, IFile projectFile, long maxDbChunkSize)
+	public BasexTestTask(TestTaskDto testTaskDto, long maxDbChunkSize)
 			throws IOException, QueryException {
-		super(new BasexTaskProgress(), testRun);
+		super(new BsxTaskProgress(), testTaskDto);
 
 		this.maxDbChunkSize = maxDbChunkSize;
-		this.testRun = testRun;
 		// tbd
-		final IFile dsDir = new IFile(
-				new File(this.testRun.getReport().getPublicationLocation()).getParentFile()
-						.getParentFile());
-		final IFile appenixDir = dsDir.expandPath("appendices/" + this.testRun.getReport().getId().toString());
-		final String logFileName = appenixDir.secureExpandPathDown(this.testRun.getReport().getId().toString() + ".log")
-				.getPath();
-		setWlogAppender(logFileName);
-		this.dbName = BsxConstants.ETF_TESTDB_PREFIX + testRun.getTestObject().getId();
+
+		// TODO
+		dsDir = new IFile(System.getProperty("etf.dsDir", "/Users/herrmann/Projects/etf-local/env1/ds/obj"));
+		final IFile attachmentDir = new IFile(System.getProperty("etf.attachmentDir", "/Users/herrmann/Projects/etf-local/env1/ds/appendices/") + testTaskDto.getId());
+		attachmentDir.mkdir();
+		final IFile logFile = attachmentDir.secureExpandPathDown("testTask.log");
+
+		this.dbName = BsxConstants.ETF_TESTDB_PREFIX + testTaskDto.getTestObject().getId();
 		this.ctx = new Context();
-		this.projectFile = projectFile;
+		this.projectFile = new IFile(testTaskDto.getExecutableTestSuite().getLocalPath());
 		this.projDir = new IFile(projectFile.getParentFile());
 
 	}
 
 	@Override
-	protected TestReport doStartTestRunnner()
-			throws IOException, QueryException, InvalidParameterException, InterruptedException,
-			InvalidStateTransitionException, SAXException {
+	protected T doStartTestEngine()
+			throws IOException, QueryException, InvalidParameterException, InterruptedException, SAXException, InvalidStateTransitionException {
 		Thread.currentThread().setContextClassLoader(this.getClass().getClassLoader());
 
 		this.projDir.expectDirIsReadable();
 		this.projectFile.expectIsReadable();
 
 		final IFile testDataDirDir = new IFile(
-				testRun.getTestObject().getResourcById(EidFactory.getDefault().createFromStrAsStr("data"))
-						.getURI().getPath(),
-				this.dbName);
+				testTaskDto.getTestObject().getResources().get(EidFactory.getDefault().createAndPreserveStr("data")).getUri(), this.dbName);
 		testDataDirDir.expectDirIsReadable();
 
 		getBsxTaskProgress().advance();
 		checkUserParameters();
 
-		final String regex = testRun.getTestObject().getProperty("regex");
+		final String regex = testTaskDto.getArguments().value("regex");
 
-		((AbstractTestReport) testRun.getReport()).setTestRunProperties(testRun);
-
-		PathFilter filter;
+		final PathFilter filter;
 		if (regex != null && !regex.isEmpty()) {
 			filter = new BasexFileFilter(new RegexFileFilter(regex));
 		} else {
@@ -121,25 +117,27 @@ class BasexTestRunTask extends AbstractTestRunTask {
 		final BasexDbPartitioner partitioner = new BasexDbPartitioner(maxDbChunkSize, this.taskProgress.getLogger(),
 				testDataDirDir.toPath(), this.dbName, filter);
 		String skippedFiles = "";
-		if (testRun.isTestObjectResourceUpdateRequired()) {
-			logInfo("The test object was just created or the resources of the test object "
-					+ " changed: creating new tests databases!");
+		// if (testRun.isTestObjectResourceUpdateRequired()) {
+		logInfo("The test object was just created or the resources of the test object "
+				+ " changed: creating new tests databases!");
 
-			for (int i = 0; i < 10000; i++) {
-				boolean dropped = Boolean.valueOf(new DropDB(this.dbName + "-" + i).execute(ctx));
-				if (dropped) {
-					logInfo("Database " + i + " dropped");
-				} else {
-					break;
-				}
+		for (int i = 0; i < 10000; i++) {
+			boolean dropped = Boolean.valueOf(new DropDB(this.dbName + "-" + i).execute(ctx));
+			if (dropped) {
+				logInfo("Database " + i + " dropped");
+			} else {
+				break;
 			}
-			skippedFiles = createDatabases(partitioner);
+		}
+		skippedFiles = createDatabases(partitioner);
+		/*
 		} else {
 			partitioner.dryRun();
 			logInfo("Reusing existing database with " +
 					partitioner.getFileCount() + " indexed files (" +
 					FileUtils.byteCountToDisplaySize(partitioner.getSize()) + ")");
 		}
+		*/
 		for (int i = 0; i < partitioner.getDbCount(); i++) {
 			new Open(this.dbName + "-" + i).execute(ctx);
 		}
@@ -151,7 +149,7 @@ class BasexTestRunTask extends AbstractTestRunTask {
 
 		fireRunning();
 		// Validate against schema if schema file is set
-		String schemaFilePath = this.testRun.getProperty("Schema_file");
+		String schemaFilePath = this.testTaskDto.getArguments().value("Schema_file");
 		if (SUtils.isNullOrEmpty(schemaFilePath)) {
 			// STD fallback: check for a schema.xsd named file
 			final String stdSchemaFile = "schema.xsd";
@@ -160,7 +158,7 @@ class BasexTestRunTask extends AbstractTestRunTask {
 			} else {
 				// project specific fallback
 				// TODO: remove in future
-				final String lodLevel = this.testRun.getProperty("Level_of_Detail");
+				final String lodLevel = this.testTaskDto.getArguments().value("Level_of_Detail");
 				if (!SUtils.isNullOrEmpty(lodLevel)) {
 					schemaFilePath = "schema/citygml/CityGML_LOD" + lodLevel + ".xsd";
 				}
@@ -198,15 +196,15 @@ class BasexTestRunTask extends AbstractTestRunTask {
 		// Bind script variables
 		// Workaround: Wrap File around URI for a clean path or basex will
 		// throw an exception
-		proc.bind("outputFile", new File(testRun.getReport().getPublicationLocation().getPath()).getPath());
+		proc.bind("outputFile", new IFile(dsDir, "EID" + testTaskDto.getTestTaskResult().getId().toString() + ".xml"));
 		proc.bind("projDir", projDir);
 		proc.bind("dbBaseName", this.dbName);
 		proc.bind("dbDir", testDataDirDir.getPath());
 		proc.bind("dbCount", partitioner.getDbCount());
-		proc.bind("reportId", testRun.getReport().getId());
-		proc.bind("reportLabel", testRun.getReport().getLabelOrId());
+		proc.bind("testObjectId", testTaskDto.getTestObject().getId());
+		proc.bind("testTaskResultId", testTaskDto.getTestTaskResult().getId());
+		proc.bind("reportLabel", ((TestRunDto) testTaskDto.getParent()).getLabel());
 		proc.bind("reportStartTimestamp", taskProgress.getStartDate().getTime());
-		proc.bind("testObjectId", testRun.getTestObject().getId());
 
 		// Add errors about not well-formed or invalid XML data
 		final String validationErrors;
@@ -231,12 +229,14 @@ class BasexTestRunTask extends AbstractTestRunTask {
 		checkCancelStatus();
 
 		logInfo("Starting xquery tests");
-		// Execute the XQuery script
-		// Version 8
-		// final Value result = proc.value();
-		proc.execute();
+		final Value result = proc.value();
 
-		return testRun.getReport();
+		return (T) testTaskDto.getTestTaskResult();
+	}
+
+	@Override
+	protected void doInit() throws ConfigurationException, InitializationException, InvalidStateTransitionException {
+
 	}
 
 	/**
@@ -279,12 +279,12 @@ class BasexTestRunTask extends AbstractTestRunTask {
 	}
 
 	/**
-	 * Returns the BasexTaskProgress.
+	 * Returns the BsxTaskProgress.
 	 *
-	 * @return BasexTaskProgress
+	 * @return BsxTaskProgress
 	 */
-	private BasexTaskProgress getBsxTaskProgress() {
-		return (BasexTaskProgress) this.taskProgress;
+	private BsxTaskProgress getBsxTaskProgress() {
+		return (BsxTaskProgress) this.taskProgress;
 	}
 
 	/**
@@ -304,8 +304,7 @@ class BasexTestRunTask extends AbstractTestRunTask {
 				setUserParameters();
 				proc.compile();
 				// Version 8
-				// proc.value();
-				proc.execute();
+				proc.value();
 			} catch (QueryException e) {
 				logInfo("Invalid user parameters. Error message: " + e.getMessage());
 				throw e;
@@ -322,7 +321,7 @@ class BasexTestRunTask extends AbstractTestRunTask {
 	 */
 	private void setUserParameters() throws QueryException {
 		// Bind additional user specified properties
-		for (Map.Entry<String, String> property : this.testRun.namePropertyPairs()) {
+		for (Map.Entry<String, String> property : this.testTaskDto.getArguments().values().entrySet()) {
 			proc.bind(property.getKey(), property.getValue());
 		}
 	}
@@ -335,7 +334,7 @@ class BasexTestRunTask extends AbstractTestRunTask {
 			}
 			new Close().execute(ctx);
 		} catch (BaseXException e) {
-			ExcUtils.supress(e);
+			ExcUtils.suppress(e);
 		}
 	}
 
