@@ -13,28 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package de.interactive_instruments.etf.testdriver.bsx;
+package de.interactive_instruments.etf.testdriver;
 
-import java.util.UUID;
-
-import de.interactive_instruments.etf.testengine.Task;
-import de.interactive_instruments.etf.testengine.TaskPoolRegistry;
-import de.interactive_instruments.etf.testengine.TaskProgress;
+import de.interactive_instruments.exceptions.StoreException;
 
 /**
- * This interface is implemented by runnable objects.
- *
- * The interface is intentionally separated from the TaskProgress interface,
- * so that a Client that uses the registry does not have direct access to
- * the thread!
- *
  * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
- *
- * @see TaskPoolRegistry
  */
-public interface TaskWithProgressIndication<R> extends Task<R> {
-
-	UUID getID();
-
-	TaskProgress<R> getTaskProgress();
+public class ExecutableTestSuiteUnavailable extends StoreException {
+	public ExecutableTestSuiteUnavailable(final String name) {
+		super("Executable Test Suite " + name + " unavailable");
+	}
 }

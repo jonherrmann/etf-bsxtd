@@ -28,7 +28,6 @@ import org.basex.core.Context;
 import org.basex.core.cmd.*;
 import org.slf4j.Logger;
 
-import de.interactive_instruments.etf.testengine.TaskProgressLogger;
 import de.interactive_instruments.io.DirSizeVisitor;
 import de.interactive_instruments.io.PathFilter;
 
@@ -232,7 +231,7 @@ class BasexDbPartitioner {
 	 * @param dbName         database name
 	 * @param filter         file filter for excluding files
 	 */
-	public BasexDbPartitioner(long maxDbChunkSize, final TaskProgressLogger logger, final Path dbDir,
+	public BasexDbPartitioner(long maxDbChunkSize, final Logger logger, final Path dbDir,
 			final String dbName, final PathFilter filter) {
 		this.dbDir = dbDir;
 		this.dbBaseName = dbName;

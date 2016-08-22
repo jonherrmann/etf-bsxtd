@@ -13,25 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package de.interactive_instruments.etf.testdriver.bsx;
+package de.interactive_instruments.etf.testdriver;
 
-import java.util.List;
+import java.io.File;
 
-import de.interactive_instruments.etf.testengine.TestRun;
+import de.interactive_instruments.etf.dal.dto.test.ExecutableTestSuiteDto;
+import de.interactive_instruments.io.PathFilter;
 
 /**
- * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
+ * @author herrmann@interactive-instruments.de.
  */
-public class BsxTestRun implements TestRun {
+public interface ExecutableTestSuiteDtoFileBuilder extends PathFilter {
 
-	private final List<BsxTestTask> bsxTestTasks;
-
-	public BsxTestRun(final List<BsxTestTask> bsxTestTasks) {
-		this.bsxTestTasks = bsxTestTasks;
-	}
-
-	@Override
-	public List<BsxTestTask> getTestTasks() {
-		return bsxTestTasks;
-	}
+	ExecutableTestSuiteDto createExecutableTestSuiteDto(final File projectFile);
 }

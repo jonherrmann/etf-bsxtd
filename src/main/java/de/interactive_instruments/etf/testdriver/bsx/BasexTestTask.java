@@ -35,8 +35,8 @@ import de.interactive_instruments.etf.dal.dto.Dto;
 import de.interactive_instruments.etf.dal.dto.run.TestRunDto;
 import de.interactive_instruments.etf.dal.dto.run.TestTaskDto;
 import de.interactive_instruments.etf.model.EidFactory;
+import de.interactive_instruments.etf.testdriver.AbstractTestTask;
 import de.interactive_instruments.etf.testdriver.bsx.xml.validation.MultiThreadedSchemaValidator;
-import de.interactive_instruments.etf.testengine.AbstractTestTask;
 import de.interactive_instruments.exceptions.ExcUtils;
 import de.interactive_instruments.exceptions.InitializationException;
 import de.interactive_instruments.exceptions.InvalidParameterException;
@@ -52,7 +52,7 @@ import de.interactive_instruments.io.PathFilter;
  *
  * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
  */
-class BasexTestTask<T extends Dto> extends AbstractTestTask<T> {
+class BasexTestTask<T extends Dto> extends AbstractTestTask {
 
 	private final String dbName;
 	private final Context ctx;
@@ -70,9 +70,8 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask<T> {
 	 * @throws IOException I/O error
 	 * @throws QueryException database error
 	 */
-	public BasexTestTask(TestTaskDto testTaskDto, long maxDbChunkSize)
-			throws IOException, QueryException {
-		super(new BsxTaskProgress(), testTaskDto);
+	public BasexTestTask(TestTaskDto testTaskDto, long maxDbChunkSize) {
+		super(testTaskDto);
 
 		this.maxDbChunkSize = maxDbChunkSize;
 		// tbd
@@ -91,8 +90,7 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask<T> {
 	}
 
 	@Override
-	protected T doStartTestEngine()
-			throws IOException, QueryException, InvalidParameterException, InterruptedException, SAXException, InvalidStateTransitionException {
+	protected void doRun() throws Exception {
 		Thread.currentThread().setContextClassLoader(this.getClass().getClassLoader());
 
 		this.projDir.expectDirIsReadable();
@@ -102,7 +100,7 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask<T> {
 				testTaskDto.getTestObject().getResources().get(EidFactory.getDefault().createAndPreserveStr("data")).getUri(), this.dbName);
 		testDataDirDir.expectDirIsReadable();
 
-		getBsxTaskProgress().advance();
+		advance();
 		checkUserParameters();
 
 		final String regex = testTaskDto.getArguments().value("regex");
@@ -114,17 +112,17 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask<T> {
 			filter = new BasexFileFilter();
 		}
 
-		final BasexDbPartitioner partitioner = new BasexDbPartitioner(maxDbChunkSize, this.taskProgress.getLogger(),
+		final BasexDbPartitioner partitioner = new BasexDbPartitioner(maxDbChunkSize, getLogger(),
 				testDataDirDir.toPath(), this.dbName, filter);
 		String skippedFiles = "";
 		// if (testRun.isTestObjectResourceUpdateRequired()) {
-		logInfo("The test object was just created or the resources of the test object "
+		getLogger().info("The test object was just created or the resources of the test object "
 				+ " changed: creating new tests databases!");
 
 		for (int i = 0; i < 10000; i++) {
 			boolean dropped = Boolean.valueOf(new DropDB(this.dbName + "-" + i).execute(ctx));
 			if (dropped) {
-				logInfo("Database " + i + " dropped");
+				getLogger().info("Database " + i + " dropped");
 			} else {
 				break;
 			}
@@ -144,8 +142,8 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask<T> {
 		fireInitialized();
 
 		checkCancelStatus();
-		getBsxTaskProgress().advance();
-		getBsxTaskProgress().advance();
+		advance();
+		advance();
 
 		fireRunning();
 		// Validate against schema if schema file is set
@@ -168,30 +166,29 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask<T> {
 		if (!SUtils.isNullOrEmpty(schemaFilePath)) {
 			final IFile schemaFile = projDir.secureExpandPathDown(schemaFilePath);
 			schemaFile.expectIsReadable();
-			logInfo("Starting parallel schema validation");
+			getLogger().info("Starting parallel schema validation");
 			mtsv = new MultiThreadedSchemaValidator(testDataDirDir, filter, schemaFile);
 			mtsv.validate();
-			logInfo("Validation ended with " + mtsv.getErrorCount() + " error(s)");
+			getLogger().info("Validation ended with " + mtsv.getErrorCount() + " error(s)");
 			if (mtsv.getErrorCount() > 0) {
-				logInfo(
+				getLogger().info(
 						"Non-schema-compliant files can not be tested and are therefore excluded from further testing:");
 				for (final File file : mtsv.getInvalidFiles()) {
-					logInfo(" - " + file.getName());
+					getLogger().info(" - " + file.getName());
 					new Delete(file.getName()).execute(ctx);
 				}
 				new Flush().execute(ctx);
 			}
 		} else {
 			mtsv = null;
-			logInfo("Skipping validation due to no schema file was set.");
+			getLogger().info("Skipping validation due to no schema file was set.");
 		}
-		getBsxTaskProgress().advance();
-		getBsxTaskProgress().advance();
+		advance();
+		advance();
 		checkCancelStatus();
 
 		// Load the test project as XQuery
 		proc = new QueryProcessor(projectFile.readContent().toString(), ctx);
-		getBsxTaskProgress().setQueryProc(proc);
 
 		// Bind script variables
 		// Workaround: Wrap File around URI for a clean path or basex will
@@ -204,7 +201,7 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask<T> {
 		proc.bind("testObjectId", testTaskDto.getTestObject().getId());
 		proc.bind("testTaskResultId", testTaskDto.getTestTaskResult().getId());
 		proc.bind("reportLabel", ((TestRunDto) testTaskDto.getParent()).getLabel());
-		proc.bind("reportStartTimestamp", taskProgress.getStartDate().getTime());
+		proc.bind("reportStartTimestamp", getStartTimestamp().getTime());
 
 		// Add errors about not well-formed or invalid XML data
 		final String validationErrors;
@@ -223,15 +220,18 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask<T> {
 
 		setUserParameters();
 
-		logInfo("Compiling test script");
+		getLogger().info("Compiling test script");
 		proc.compile();
-		getBsxTaskProgress().advance();
+		advance();
 		checkCancelStatus();
 
-		logInfo("Starting xquery tests");
+		getLogger().info("Starting xquery tests");
 		final Value result = proc.value();
 
-		return (T) testTaskDto.getTestTaskResult();
+	}
+
+	private void advance() {
+		stepsCompleted += 13;
 	}
 
 	@Override
@@ -253,17 +253,17 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask<T> {
 	private String createDatabases(final BasexDbPartitioner partitioner)
 			throws IOException, InterruptedException {
 		partitioner.dryRun();
-		logInfo(partitioner.getFileCount() +
+		getLogger().info(partitioner.getFileCount() +
 				" files (" + FileUtils.byteCountToDisplaySize(partitioner.getSize()) + ")"
 				+ " will be added to " + partitioner.getDbCount() + " test database(s)");
-		getBsxTaskProgress().advance();
+		advance();
 		if (partitioner.getDbCount() > 1) {
-			logInfo("This might take a while...");
+			getLogger().info("This might take a while...");
 		}
 		partitioner.reset();
-		logInfo("Creating a new test database " + partitioner.getFileCount());
+		getLogger().info("Creating a new test database " + partitioner.getFileCount());
 		partitioner.createDatabases();
-		logInfo("Added " + partitioner.getFileCount() + " files");
+		getLogger().info("Added " + partitioner.getFileCount() + " files");
 		if (!partitioner.getSkippedFiles().isEmpty()) {
 			final StringBuilder skippedFiles = new StringBuilder();
 			skippedFiles.append("Skipped " + partitioner.getSkippedFiles().size() +
@@ -271,20 +271,11 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask<T> {
 			for (String s : partitioner.getSkippedFiles()) {
 				skippedFiles.append(s + SUtils.ENDL);
 			}
-			logInfo(skippedFiles.toString());
+			getLogger().info(skippedFiles.toString());
 			return skippedFiles.toString();
 		}
 		// all files imported
 		return "";
-	}
-
-	/**
-	 * Returns the BsxTaskProgress.
-	 *
-	 * @return BsxTaskProgress
-	 */
-	private BsxTaskProgress getBsxTaskProgress() {
-		return (BsxTaskProgress) this.taskProgress;
 	}
 
 	/**
@@ -306,10 +297,10 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask<T> {
 				// Version 8
 				proc.value();
 			} catch (QueryException e) {
-				logInfo("Invalid user parameters. Error message: " + e.getMessage());
+				getLogger().info("Invalid user parameters. Error message: " + e.getMessage());
 				throw e;
 			}
-			logInfo("User parameters accepted");
+			getLogger().info("User parameters accepted");
 			proc.close();
 		}
 	}
@@ -338,15 +329,17 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask<T> {
 		}
 	}
 
+	/*
 	@Override
 	protected void doHandleException(Exception e) {
 		if (e.getMessage() != null) {
-			logInfo("Testrun failed with an error: " + e.getMessage());
+			getLogger().info("Testrun failed with an error: " + e.getMessage());
 
 		} else {
-			logInfo("Testrun failed");
+			getLogger().info("Testrun failed");
 		}
 	}
+	*/
 
 	@Override
 	protected void doCancel() throws InvalidStateTransitionException {

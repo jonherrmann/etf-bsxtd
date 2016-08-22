@@ -15,12 +15,11 @@
  */
 package de.interactive_instruments.etf.testdriver.bsx;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Objects;
+import java.io.IOException;
+import java.util.*;
 
 import org.basex.BaseX;
+import org.basex.query.QueryException;
 
 import de.interactive_instruments.etf.component.ComponentInfo;
 import de.interactive_instruments.etf.dal.dto.capabilities.TestObjectTypeDto;
@@ -28,9 +27,11 @@ import de.interactive_instruments.etf.dal.dto.run.TestRunDto;
 import de.interactive_instruments.etf.dal.dto.run.TestTaskDto;
 import de.interactive_instruments.etf.dal.dto.test.ExecutableTestSuiteDto;
 import de.interactive_instruments.etf.model.EID;
-import de.interactive_instruments.etf.testengine.ComponentInitializer;
-import de.interactive_instruments.etf.testengine.TestEngine;
-import de.interactive_instruments.etf.testengine.TestRun;
+import de.interactive_instruments.etf.model.EidFactory;
+import de.interactive_instruments.etf.testdriver.ComponentInitializer;
+import de.interactive_instruments.etf.testdriver.EtsLookupRequest;
+import de.interactive_instruments.etf.testdriver.TestDriver;
+import de.interactive_instruments.etf.testdriver.TestTask;
 import de.interactive_instruments.exceptions.*;
 import de.interactive_instruments.exceptions.config.ConfigurationException;
 import de.interactive_instruments.properties.ConfigProperties;
@@ -42,8 +43,8 @@ import de.interactive_instruments.properties.ConfigPropertyHolder;
  * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
  */
 
-@ComponentInitializer(id = "BSX")
-public class BsxTestDriver implements TestEngine {
+@ComponentInitializer(id = "4dddc9e2-1b21-40b7-af70-6a2d156ad130")
+public class BsxTestDriver implements TestDriver {
 
 	private BsxExecutableTestSuiteHolder etsHolder;
 
@@ -54,8 +55,8 @@ public class BsxTestDriver implements TestEngine {
 		}
 
 		@Override
-		public String getId() {
-			return "BSX";
+		public EID getId() {
+			return EidFactory.getDefault().createAndPreserveStr("4dddc9e2-1b21-40b7-af70-6a2d156ad130");
 		}
 
 		@Override
@@ -95,7 +96,20 @@ public class BsxTestDriver implements TestEngine {
 	}
 
 	@Override
-	public TestRun createTestRun(final TestRunDto testRun) throws ConfigurationException {
+	public void lookupExecutableTestSuites(final EtsLookupRequest etsLookupRequest) {
+		final Set<EID> etsIds = etsLookupRequest.getUnknownEts();
+		final Set<ExecutableTestSuiteDto> knownEts = new HashSet<>();
+		for (final EID etsId : etsIds) {
+			final ExecutableTestSuiteDto ets = etsHolder.getExecutableTestSuiteById(etsId);
+			if (ets != null) {
+				knownEts.add(ets);
+			}
+		}
+		etsLookupRequest.addKnownEts(knownEts);
+	}
+
+	@Override
+	public TestTask createTestTask(final TestTaskDto testTaskDto) throws ConfigurationException {
 		/*
 			try {
 				final TestProject project = getTestProjectStore().getById(testRunDto.getTestProject().getId());
@@ -111,21 +125,14 @@ public class BsxTestDriver implements TestEngine {
 			}
 			*/
 		// get etse
-		Objects.requireNonNull(testRun, "Test Run not set").ensureValid();
+		Objects.requireNonNull(testTaskDto, "Test Task not set").ensureValid();
 
-		final List<TestTaskDto> testTaskDtos = testRun.getTestTasks();
-		final List<BsxTestTask> bsxTestTasks = new ArrayList();
-
-		for (final TestTaskDto testTaskDto : testTaskDtos) {
-			testTaskDto.ensureValid();
-			// Get ETS
-			final EID etsId = testTaskDto.getExecutableTestSuite().getId();
-			final ExecutableTestSuiteDto etsDto = etsHolder.getExecutableTestSuiteById(etsId);
-			testTaskDto.setExecutableTestSuite(etsDto);
-			testTaskDto.getTestObject().ensureValid();
-			bsxTestTasks.add(new BsxTestTask(testTaskDto));
-		}
-		return new BsxTestRun(bsxTestTasks);
+		testTaskDto.ensureValid();
+		// Get ETS
+		testTaskDto.getTestObject().ensureValid();
+		testTaskDto.getExecutableTestSuite().ensureValid();
+		return new BasexTestTask(testTaskDto, configProperties
+				.getPropertyOrDefaultAsLong(BsxConstants.DB_MAX_CHUNK_SIZE, DEFAULT_MAX_CHUNK_SIZE));
 
 	}
 

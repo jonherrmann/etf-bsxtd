@@ -39,9 +39,9 @@ import de.interactive_instruments.etf.EtfConstants;
 import de.interactive_instruments.etf.dal.dto.capabilities.TestObjectTypeDto;
 import de.interactive_instruments.etf.dal.dto.test.ExecutableTestSuiteDto;
 import de.interactive_instruments.etf.model.*;
-import de.interactive_instruments.etf.testengine.ExecutableTestSuiteDtoFileBuilder;
-import de.interactive_instruments.etf.testengine.ExecutableTestSuiteUnavailable;
-import de.interactive_instruments.etf.testengine.ProjectFileBuildVisitor;
+import de.interactive_instruments.etf.testdriver.ExecutableTestSuiteDtoFileBuilder;
+import de.interactive_instruments.etf.testdriver.ExecutableTestSuiteUnavailable;
+import de.interactive_instruments.etf.testdriver.ProjectFileBuildVisitor;
 import de.interactive_instruments.exceptions.*;
 import de.interactive_instruments.exceptions.config.ConfigurationException;
 import de.interactive_instruments.io.FileChangeListener;
@@ -190,7 +190,7 @@ public class BsxExecutableTestSuiteHolder implements Configurable, Releasable, F
 		// todo? etsDto.setId(EidFactory.getDefault().createUUID(id));
 		etsDto.setId(EidFactory.getDefault().createUUID(name));
 		etsDto.setLocalPath(projFile.toURI().toString());
-		etsDto.setParameterSet(parameters);
+		etsDto.setParameters(parameters);
 		// etsDto.setProperties(properties);
 		etsDto.setSupportedTestObjectTypes(testObjectTypes.asList());
 
