@@ -19,7 +19,13 @@ public final class BsxConstants {
 
 	private BsxConstants() {}
 
-	public static final String PROJECT_SUFFIX = "-basex.xq";
+	public static final String ETS_DEF_FILE_SUFFIX = "-bsxets.xml";
+
+	public static final String TRANSLATION_TEMPLATE_BUNDLE_SUFFIX = "-ettb.xml";
+
+	public static final String STATISTICAL_REPORT_TABLE_TYPE_SUFFIX = "-esrtt.xml";
+
+	public static final String BSX_ETS_FILE = "-bsxets.xq";
 
 	public static final String PROJECT_CHECK_FILE_SUFFIX = "-bsxpc.xq";
 

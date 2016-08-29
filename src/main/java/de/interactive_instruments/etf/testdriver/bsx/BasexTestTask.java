@@ -16,9 +16,15 @@
 package de.interactive_instruments.etf.testdriver.bsx;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Map;
 
+import de.interactive_instruments.etf.dal.dao.DataStorage;
+import de.interactive_instruments.etf.dal.dao.StreamWriteDao;
+import de.interactive_instruments.etf.dal.dto.result.TestTaskResultDto;
+import de.interactive_instruments.etf.model.EID;
+import de.interactive_instruments.etf.model.EidFactory;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.RegexFileFilter;
 import org.basex.core.BaseXException;
@@ -27,14 +33,12 @@ import org.basex.core.cmd.*;
 import org.basex.query.QueryException;
 import org.basex.query.QueryProcessor;
 import org.basex.query.value.Value;
-import org.xml.sax.SAXException;
 
 import de.interactive_instruments.IFile;
 import de.interactive_instruments.SUtils;
 import de.interactive_instruments.etf.dal.dto.Dto;
 import de.interactive_instruments.etf.dal.dto.run.TestRunDto;
 import de.interactive_instruments.etf.dal.dto.run.TestTaskDto;
-import de.interactive_instruments.etf.model.EidFactory;
 import de.interactive_instruments.etf.testdriver.AbstractTestTask;
 import de.interactive_instruments.etf.testdriver.bsx.xml.validation.MultiThreadedSchemaValidator;
 import de.interactive_instruments.exceptions.ExcUtils;
@@ -55,8 +59,9 @@ import de.interactive_instruments.io.PathFilter;
 class BasexTestTask<T extends Dto> extends AbstractTestTask {
 
 	private final String dbName;
+	private final DataStorage dataStorageCallback;
 	private final Context ctx;
-	private final IFile dsDir;
+	// private final IFile dsDir;
 	private QueryProcessor proc;
 	// The basex project file
 	private final IFile projectFile;
@@ -70,21 +75,29 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 	 * @throws IOException I/O error
 	 * @throws QueryException database error
 	 */
-	public BasexTestTask(TestTaskDto testTaskDto, long maxDbChunkSize) {
+	public BasexTestTask(final TestTaskDto testTaskDto, final long maxDbChunkSize, final DataStorage dataStorageCallback) {
 		super(testTaskDto);
 
 		this.maxDbChunkSize = maxDbChunkSize;
-		// tbd
 
 		// TODO
+		/*
 		dsDir = new IFile(System.getProperty("etf.dsDir", "/Users/herrmann/Projects/etf-local/env1/ds/obj"));
 		final IFile attachmentDir = new IFile(System.getProperty("etf.attachmentDir", "/Users/herrmann/Projects/etf-local/env1/ds/appendices/") + testTaskDto.getId());
 		attachmentDir.mkdir();
 		final IFile logFile = attachmentDir.secureExpandPathDown("testTask.log");
+		*/
 
-		this.dbName = BsxConstants.ETF_TESTDB_PREFIX + testTaskDto.getTestObject().getId();
+		this.dbName = BsxConstants.ETF_TESTDB_PREFIX + testTaskDto.getTestObject().getId().toString();
+		this.dataStorageCallback = dataStorageCallback;
 		this.ctx = new Context();
-		this.projectFile = new IFile(testTaskDto.getExecutableTestSuite().getLocalPath());
+		try {
+			this.projectFile = new IFile(new File(testTaskDto.getExecutableTestSuite().getLocalPath(),
+					"../"+testTaskDto.getExecutableTestSuite().getReference()).getCanonicalFile());
+		} catch (IOException e) {
+			throw new IllegalStateException(e);
+		}
+		// this.projectFile = new IFile(testTaskDto.getExecutableTestSuite().getLocalPath());
 		this.projDir = new IFile(projectFile.getParentFile());
 
 	}
@@ -92,12 +105,11 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 	@Override
 	protected void doRun() throws Exception {
 		Thread.currentThread().setContextClassLoader(this.getClass().getClassLoader());
-
 		this.projDir.expectDirIsReadable();
 		this.projectFile.expectIsReadable();
 
 		final IFile testDataDirDir = new IFile(
-				testTaskDto.getTestObject().getResources().get(EidFactory.getDefault().createAndPreserveStr("data")).getUri(), this.dbName);
+				testTaskDto.getTestObject().getResources().get("data").getUri(), this.dbName);
 		testDataDirDir.expectDirIsReadable();
 
 		advance();
@@ -107,35 +119,33 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 
 		final PathFilter filter;
 		if (regex != null && !regex.isEmpty()) {
-			filter = new BasexFileFilter(new RegexFileFilter(regex));
+			filter = new BasexTestObjectFileFilter(new RegexFileFilter(regex));
 		} else {
-			filter = new BasexFileFilter();
+			filter = new BasexTestObjectFileFilter();
 		}
 
 		final BasexDbPartitioner partitioner = new BasexDbPartitioner(maxDbChunkSize, getLogger(),
 				testDataDirDir.toPath(), this.dbName, filter);
 		String skippedFiles = "";
-		// if (testRun.isTestObjectResourceUpdateRequired()) {
-		getLogger().info("The test object was just created or the resources of the test object "
-				+ " changed: creating new tests databases!");
-
-		for (int i = 0; i < 10000; i++) {
-			boolean dropped = Boolean.valueOf(new DropDB(this.dbName + "-" + i).execute(ctx));
-			if (dropped) {
-				getLogger().info("Database " + i + " dropped");
-			} else {
-				break;
+		boolean resourceUpdateRequired = true; // todo
+		if (resourceUpdateRequired) {
+			getLogger().info("The test object was just created or the resources of the test object "
+					+ " changed: creating new tests databases!");
+			for (int i = 0; i < 10000; i++) {
+				boolean dropped = Boolean.valueOf(new DropDB(this.dbName + "-" + i).execute(ctx));
+				if (dropped) {
+					getLogger().info("Database " + i + " dropped");
+				} else {
+					break;
+				}
 			}
-		}
-		skippedFiles = createDatabases(partitioner);
-		/*
+			skippedFiles = createDatabases(partitioner);
 		} else {
 			partitioner.dryRun();
-			logInfo("Reusing existing database with " +
+			getLogger().info("Reusing existing database with " +
 					partitioner.getFileCount() + " indexed files (" +
 					FileUtils.byteCountToDisplaySize(partitioner.getSize()) + ")");
 		}
-		*/
 		for (int i = 0; i < partitioner.getDbCount(); i++) {
 			new Open(this.dbName + "-" + i).execute(ctx);
 		}
@@ -189,19 +199,36 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 
 		// Load the test project as XQuery
 		proc = new QueryProcessor(projectFile.readContent().toString(), ctx);
+		proc.job().listener = info -> getLogger().info(info);
 
 		// Bind script variables
 		// Workaround: Wrap File around URI for a clean path or basex will
 		// throw an exception
-		proc.bind("outputFile", new IFile(dsDir, "EID" + testTaskDto.getTestTaskResult().getId().toString() + ".xml"));
-		proc.bind("projDir", projDir);
-		proc.bind("dbBaseName", this.dbName);
-		proc.bind("dbDir", testDataDirDir.getPath());
-		proc.bind("dbCount", partitioner.getDbCount());
-		proc.bind("testObjectId", testTaskDto.getTestObject().getId());
-		proc.bind("testTaskResultId", testTaskDto.getTestTaskResult().getId());
-		proc.bind("reportLabel", ((TestRunDto) testTaskDto.getParent()).getLabel());
-		proc.bind("reportStartTimestamp", getStartTimestamp().getTime());
+		final File tmpResultFile = new File(resultListener.getTempDir(), "TestTaskResult-"+this.getId()+".xml");
+		proc.bind("$outputFile", tmpResultFile);
+		proc.bind("$testTaskResultId", testTaskDto.getTestTaskResult().getId().getId());
+		proc.bind("$attachmentDir", resultListener.getAttachmentDir());
+		proc.bind("$projDir", projDir);
+		proc.bind("$dbBaseName", this.dbName);
+		proc.bind("$tmpDir", this.resultListener.getTempDir());
+		proc.bind("$dbDir", testDataDirDir.getPath());
+		proc.bind("$etsFile", testTaskDto.getExecutableTestSuite().getLocalPath());
+		proc.bind("$dbCount", partitioner.getDbCount());
+		proc.bind("$reportLabel", ((TestRunDto) testTaskDto.getParent()).getLabel());
+		proc.bind("$reportStartTimestamp", getStartTimestamp().getTime());
+
+
+
+		final EID testTaskResultId = EidFactory.getDefault().createRandomId();
+		proc.bind("$testObjectId", "EID"+testTaskResultId);
+		proc.bind("$testTaskResultId", "EID"+testTaskDto.getTestTaskResult().getId());
+
+		proc.bind("$testObjectId", "EID"+this.testTaskDto.getTestObject().getId());
+		proc.bind("$testTaskId", "EID"+this.testTaskDto.getId());
+		proc.bind("$testTaskResultId", "EID"+this.testTaskDto.getTestTaskResult().getId());
+		proc.bind("$testRunId", "EID"+this.testTaskDto.getParent().getId());
+		proc.bind("$executableTestSuiteId", "EID"+this.testTaskDto.getExecutableTestSuite().getId());
+		proc.bind("$translationTemplateBundleId", "EID"+this.testTaskDto.getExecutableTestSuite().getTranslationTemplateBundle().getId());
 
 		// Add errors about not well-formed or invalid XML data
 		final String validationErrors;
@@ -228,6 +255,11 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 		getLogger().info("Starting xquery tests");
 		final Value result = proc.value();
 
+		final FileInputStream fileStream = new FileInputStream(tmpResultFile);
+		final TestTaskResultDto testTaskResult = ((StreamWriteDao<TestTaskResultDto>)dataStorageCallback.
+				getDao(TestTaskResultDto.class)).add(fileStream);
+
+		testTaskDto.setTestTaskResult(testTaskResult);
 	}
 
 	private void advance() {
@@ -287,7 +319,7 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 	 */
 	private void checkUserParameters() throws IOException, QueryException, InvalidParameterException {
 		// Check parameters by executing the xquery script
-		final String checkParamXqFileName = projectFile.getName().replace(BsxConstants.PROJECT_SUFFIX, BsxConstants.PROJECT_CHECK_FILE_SUFFIX);
+		final String checkParamXqFileName = projectFile.getName().replace(BsxConstants.BSX_ETS_FILE, BsxConstants.PROJECT_CHECK_FILE_SUFFIX);
 		final IFile checkParamXqFile = projDir.secureExpandPathDown(checkParamXqFileName);
 		if (checkParamXqFile.exists()) {
 			proc = new QueryProcessor(checkParamXqFile.readContent().toString(), ctx);

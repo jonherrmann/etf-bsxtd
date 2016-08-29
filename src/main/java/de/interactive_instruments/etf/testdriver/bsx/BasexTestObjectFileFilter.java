@@ -27,15 +27,15 @@ import de.interactive_instruments.io.PathFilter;
  *
  * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
  */
-class BasexFileFilter implements FileFilter, PathFilter {
+class BasexTestObjectFileFilter implements FileFilter, PathFilter {
 
 	private final FileFilter ff;
 
-	public BasexFileFilter(FileFilter ff) {
+	public BasexTestObjectFileFilter(FileFilter ff) {
 		this.ff = ff;
 	}
 
-	public BasexFileFilter() {
+	public BasexTestObjectFileFilter() {
 		ff = null;
 	}
 

@@ -15,12 +15,12 @@
  */
 package de.interactive_instruments.etf.testdriver;
 
-import de.interactive_instruments.exceptions.StoreException;
+import de.interactive_instruments.exceptions.StorageException;
 
 /**
  * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
  */
-public class ExecutableTestSuiteUnavailable extends StoreException {
+public class ExecutableTestSuiteUnavailable extends StorageException {
 	public ExecutableTestSuiteUnavailable(final String name) {
 		super("Executable Test Suite " + name + " unavailable");
 	}

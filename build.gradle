@@ -64,9 +64,9 @@ dependencies {
 
 	// Required by BaseX extensions, must be placed in the lib folder or
 	// the extension class loader will not initialize 3rd party libraries correctly
-	compile group: 'xerces', name: 'xercesImpl', version: etf_xercesVersion
-	compile group: 'xml-apis', name: 'xml-apis', version: etf_xmlApisVersion
-	compile('dom4j:dom4j:1.6.1') {
+	compileOnly group: 'xerces', name: 'xercesImpl', version: etf_xercesVersion
+	compileOnly group: 'xml-apis', name: 'xml-apis', version: etf_xmlApisVersion
+	compileOnly('dom4j:dom4j:1.6.1') {
 		exclude group: 'xml-apis'
 	}
 
