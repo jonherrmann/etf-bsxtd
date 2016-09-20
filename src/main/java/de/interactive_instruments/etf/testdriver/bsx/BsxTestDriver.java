@@ -46,13 +46,14 @@ import static de.interactive_instruments.etf.testdriver.bsx.BsxTestDriver.BSX_TE
  *
  * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
  */
-
 @ComponentInitializer(id = BSX_TEST_DRIVER_EID)
 public class BsxTestDriver implements TestDriver {
 
 	public static final String BSX_TEST_DRIVER_EID = "4dddc9e2-1b21-40b7-af70-6a2d156ad130";
-
-	private BsxTypePropagator typePropagator;
+	private BsxTypeLoader typeLoader;
+	public static final long DEFAULT_MAX_CHUNK_SIZE = 33500000000L;
+	final private ConfigProperties configProperties = new ConfigProperties(ETF_DATA_STORAGE_NAME, BsxConstants.PROJECT_DIR_KEY);
+	private DataStorage dataStorageCallback;
 
 	private final ComponentInfo info = new ComponentInfo() {
 		@Override
@@ -81,20 +82,14 @@ public class BsxTestDriver implements TestDriver {
 		}
 	};
 
-	public static final long DEFAULT_MAX_CHUNK_SIZE = 33500000000L;
-	final private ConfigProperties configProperties = new ConfigProperties(ETF_DATA_STORAGE_NAME, BsxConstants.PROJECT_DIR_KEY);
-	private DataStorage dataStorageCallback;
-
-	public BsxTestDriver() throws StorageException {}
-
 	@Override
 	public Collection<ExecutableTestSuiteDto> getExecutableTestSuites() {
-		return typePropagator.getExecutableTestSuites();
+		return typeLoader.getExecutableTestSuites();
 	}
 
 	@Override
 	public Collection<TestObjectTypeDto> getTestObjectTypes() {
-		return typePropagator.getTestObjectTypes();
+		return typeLoader.getTestObjectTypes();
 	}
 
 	@Override
@@ -107,7 +102,7 @@ public class BsxTestDriver implements TestDriver {
 		final Set<EID> etsIds = etsLookupRequest.getUnknownEts();
 		final Set<ExecutableTestSuiteDto> knownEts = new HashSet<>();
 		for (final EID etsId : etsIds) {
-			final ExecutableTestSuiteDto ets = typePropagator.getExecutableTestSuiteById(etsId);
+			final ExecutableTestSuiteDto ets = typeLoader.getExecutableTestSuiteById(etsId);
 			if (ets != null) {
 				knownEts.add(ets);
 			}
@@ -154,9 +149,9 @@ public class BsxTestDriver implements TestDriver {
 
 		propagateComponents();
 
-		typePropagator = new BsxTypePropagator(dataStorageCallback);
-		typePropagator.getConfigurationProperties().setPropertiesFrom(configProperties, true);
-		typePropagator.init();
+		typeLoader = new BsxTypeLoader(dataStorageCallback);
+		typeLoader.getConfigurationProperties().setPropertiesFrom(configProperties, true);
+		typeLoader.init();
 	}
 
 	private void propagateComponents() throws InitializationException {
@@ -177,11 +172,11 @@ public class BsxTestDriver implements TestDriver {
 
 	@Override
 	public boolean isInitialized() {
-		return dataStorageCallback!=null && typePropagator!=null && typePropagator.isInitialized();
+		return dataStorageCallback!=null && typeLoader !=null && typeLoader.isInitialized();
 	}
 
 	@Override
 	public void release() {
-		typePropagator.release();
+		typeLoader.release();
 	}
 }

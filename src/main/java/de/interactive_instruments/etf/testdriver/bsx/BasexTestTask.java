@@ -25,6 +25,7 @@ import de.interactive_instruments.etf.dal.dao.StreamWriteDao;
 import de.interactive_instruments.etf.dal.dto.result.TestTaskResultDto;
 import de.interactive_instruments.etf.model.EID;
 import de.interactive_instruments.etf.model.EidFactory;
+import de.interactive_instruments.etf.testdriver.AbstractTestTaskProgress;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.RegexFileFilter;
 import org.basex.core.BaseXException;
@@ -48,9 +49,6 @@ import de.interactive_instruments.exceptions.InvalidStateTransitionException;
 import de.interactive_instruments.exceptions.config.ConfigurationException;
 import de.interactive_instruments.io.PathFilter;
 
-// Version 8
-// import org.basex.query.value.*;
-
 /**
  * BaseX test run task for executing XQuery on a BaseX database.
  *
@@ -68,6 +66,12 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 	private final IFile projDir;
 	private final long maxDbChunkSize;
 
+	static class BasexTaskProgress extends AbstractTestTaskProgress {
+		void doAdvance() {
+			advance();
+		}
+	}
+
 	/**
 	 * Default constructor.
 	 *
@@ -76,7 +80,7 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 	 * @throws QueryException database error
 	 */
 	public BasexTestTask(final TestTaskDto testTaskDto, final long maxDbChunkSize, final DataStorage dataStorageCallback) {
-		super(testTaskDto);
+		super(testTaskDto, new BasexTaskProgress());
 
 		this.maxDbChunkSize = maxDbChunkSize;
 
@@ -204,18 +208,18 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 		// Bind script variables
 		// Workaround: Wrap File around URI for a clean path or basex will
 		// throw an exception
-		final File tmpResultFile = new File(resultListener.getTempDir(), "TestTaskResult-"+this.getId()+".xml");
+		final File tmpResultFile = new File(resultCollector.getTempDir(), "TestTaskResult-"+this.getId()+".xml");
 		proc.bind("$outputFile", tmpResultFile);
 		proc.bind("$testTaskResultId", testTaskDto.getTestTaskResult().getId().getId());
-		proc.bind("$attachmentDir", resultListener.getAttachmentDir());
+		proc.bind("$attachmentDir", resultCollector.getAttachmentDir());
 		proc.bind("$projDir", projDir);
 		proc.bind("$dbBaseName", this.dbName);
-		proc.bind("$tmpDir", this.resultListener.getTempDir());
+		proc.bind("$tmpDir", this.resultCollector.getTempDir());
 		proc.bind("$dbDir", testDataDirDir.getPath());
 		proc.bind("$etsFile", testTaskDto.getExecutableTestSuite().getLocalPath());
 		proc.bind("$dbCount", partitioner.getDbCount());
 		proc.bind("$reportLabel", ((TestRunDto) testTaskDto.getParent()).getLabel());
-		proc.bind("$reportStartTimestamp", getStartTimestamp().getTime());
+		proc.bind("$reportStartTimestamp", getProgress().getStartTimestamp().getTime());
 
 
 
@@ -252,10 +256,12 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 		advance();
 		checkCancelStatus();
 
-		getLogger().info("Starting xquery tests");
-		final Value result = proc.value();
+		getLogger().info("Starting XQuery tests");
+		proc.value();
 
+		resultCollector.finish();
 		final FileInputStream fileStream = new FileInputStream(tmpResultFile);
+		// TODO: remove,
 		final TestTaskResultDto testTaskResult = ((StreamWriteDao<TestTaskResultDto>)dataStorageCallback.
 				getDao(TestTaskResultDto.class)).add(fileStream);
 
@@ -263,7 +269,7 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 	}
 
 	private void advance() {
-		stepsCompleted += 13;
+		((BasexTaskProgress)progress).doAdvance();
 	}
 
 	@Override
