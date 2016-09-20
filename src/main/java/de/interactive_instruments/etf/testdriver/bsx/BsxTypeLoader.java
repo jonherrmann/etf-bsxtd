@@ -16,6 +16,7 @@
 package de.interactive_instruments.etf.testdriver.bsx;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -62,7 +63,7 @@ import de.interactive_instruments.properties.ConfigPropertyHolder;
  *
  * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
  */
-public class BsxTypePropagator implements Configurable, Releasable, FileChangeListener {
+public class BsxTypeLoader implements Configurable, Releasable, FileChangeListener {
 
 	// Supported Test Object Typess
 	private final EidMap<TestObjectTypeDto> testObjectTypes = new DefaultEidMap<TestObjectTypeDto>() {
@@ -219,7 +220,7 @@ public class BsxTypePropagator implements Configurable, Releasable, FileChangeLi
 	/**
 	 * Default constructor.
 	 */
-	public BsxTypePropagator(final DataStorage dataStorage) {
+	public BsxTypeLoader(final DataStorage dataStorage) {
 		this.configProperties = new ConfigProperties(EtfConstants.ETF_PROJECTS_DIR);
 		this.dataStorageCallback = dataStorage;
 		builders = new ArrayList<TypeBuildingFileVisitor.TypeBuilder>() {{
@@ -281,6 +282,25 @@ public class BsxTypePropagator implements Configurable, Releasable, FileChangeLi
 		final Set<Path> subPaths = subDirs.stream().
 				map(File::toPath).collect(Collectors.toSet());
 		filesChanged(null,subPaths);
+
+		/*
+				// Parse all directories
+		final List<File> subDirs = getSubdirs(etsDir);
+		final Set<File> filesToProcess = new LinkedHashSet<>();
+		for (final File subDir : subDirs) {
+			final File[] files = subDir.listFiles(path ->
+					path.toString().endsWith(BsxConstants.TRANSLATION_TEMPLATE_BUNDLE_SUFFIX)
+							|| path.toString().endsWith(BsxConstants.ETS_DEF_FILE_SUFFIX));
+			if (files != null || files.length > 0) {
+				filesToProcess.addAll(Arrays.asList(files));
+			}
+		}
+		final Set<File> addedFiles = new LinkedHashSet<>();
+		for (final File filesToProces : filesToProcess) {
+
+		}
+		 */
+
 
 		// Watch the ets directory
 		watcher = RecursiveDirWatcher.create(this.etsDir.toPath(), this);
