@@ -273,8 +273,8 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 	}
 
 	@Override
-	protected void doInit() throws ConfigurationException, InitializationException, InvalidStateTransitionException {
-
+	protected void doInit() throws ConfigurationException, InitializationException {
+		Thread.currentThread().setContextClassLoader(this.getClass().getClassLoader());
 	}
 
 	/**
