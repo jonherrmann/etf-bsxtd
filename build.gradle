@@ -43,6 +43,10 @@ repositories {
 
 ext.basexVersion = '8.5.3'
 
+configurations {
+	compile.exclude group:'xalan'
+}
+
 dependencies {
 
 	compileOnly group: 'de.interactive_instruments', name: 'ii-commons-util', version:'2.0.0'+project.snapshotSuffix
@@ -72,62 +76,49 @@ dependencies {
 
 	testCompile group: 'junit', name: 'junit', version: etf_junitTestVersion
 }
-configurations {
-	compile.exclude group:'xalan'
-}
 
-task sourcesJar(type: Jar, dependsOn: classes) {
-	description = 'Creates jars with the sourcecode'
-	classifier 'source'
-	from sourceSets.main.allSource
-}
+def allLibs = configurations.runtime + configurations.compile -
+		configurations.compile.filter { it.name.startsWith('etf-core') } -
+		configurations.compile.filter { it.name.startsWith('etf-spi') } -
+		configurations.compile.filter { it.name.startsWith('ii-commons-util') } -
+		configurations.compile.filter { it.name.startsWith('slf4j-api') } -
+		configurations.compile.filter { it.name.startsWith('log4j') && !it.name.startsWith('log4j-over-slf4j') } -
+		configurations.compile.filter { it.name.startsWith('jetty') } -
+		configurations.compile.filter { it.name.startsWith('xml-apis') } -
+		configurations.compile.filter { it.name.startsWith('commons-lang3') } -
+		configurations.compile.filter { it.name.startsWith('xercesImpl') }
 
 jar.doFirst {
 	manifest {
 		attributes(
-				'Package-Title': 'BaseX',
-				'Package-Vendor': 'BaseX GmbH'
+				'Test-Engine-Title': 'SoapUI',
+				'Test-Engine-Vendor': 'Smartbear',
+				'Test-Engine-Version': basexVersion
 		)
+	}
+}
+
+jar {
+	into('lib') {
+		from allLibs
 	}
 }
 
 task copyTdToTdDir(dependsOn: jar) << {
 	copy {
 		from jar
-		into "$testDataDir/bsx/bin"
+		into "$testDataDir"
 	}
 	println "Copied test driver to $testDataDir"
 }
 
-def allLibs = configurations.runtime + configurations.compile -
-		configurations.compile.filter { it.name.startsWith('etf-model') } -
-		configurations.compile.filter { it.name.startsWith('ii-commons-util') } -
-		configurations.compile.filter { it.name.startsWith('slf4j-api') } -
-		configurations.compile.filter { it.name.startsWith('jetty') } -
-		configurations.compile.filter { it.name.startsWith('xml-apis') } -
-		configurations.compile.filter { it.name.startsWith('log4j') }
-
-task copyLibsToTdDir << {
-	copy {
-		from allLibs
-		into "$testDataDir/bsx/lib"
-	}
-}
-
 install {
-	dependsOn = ["driverZip", "copyTdToTdDir", "copyLibsToTdDir"]
+	dependsOn = ["copyTdToTdDir"]
 }
 
-task driverZip(type: Zip) {
-	baseName = 'etf-bsxtd'
-	into('bsx/bin') {
-		from jar
-	}
-	into('bsx/lib') {
-		from allLibs
-	}
-}
+// INTEGRATION TESTS
+///////////////////////////////////////////////////////////////////////////////////////
 
-artifacts {
-	archives driverZip
-}
+// TODO
+
+///////////////////////////////////////////////////////////////////////////////////////
