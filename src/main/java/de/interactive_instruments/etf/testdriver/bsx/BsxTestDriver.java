@@ -15,31 +15,31 @@
  */
 package de.interactive_instruments.etf.testdriver.bsx;
 
+import static de.interactive_instruments.etf.EtfConstants.ETF_DATA_STORAGE_NAME;
+import static de.interactive_instruments.etf.testdriver.bsx.BsxTestDriver.BSX_TEST_DRIVER_EID;
+
 import java.util.*;
 
+import org.basex.BaseX;
+
+import de.interactive_instruments.etf.component.ComponentInfo;
 import de.interactive_instruments.etf.dal.dao.DataStorage;
 import de.interactive_instruments.etf.dal.dao.DataStorageRegistry;
 import de.interactive_instruments.etf.dal.dao.WriteDao;
 import de.interactive_instruments.etf.dal.dto.IncompleteDtoException;
 import de.interactive_instruments.etf.dal.dto.capabilities.ComponentDto;
-import de.interactive_instruments.etf.dal.dto.result.TestTaskResultDto;
-import de.interactive_instruments.etf.testdriver.*;
-import de.interactive_instruments.exceptions.config.InvalidPropertyException;
-import org.basex.BaseX;
-
-import de.interactive_instruments.etf.component.ComponentInfo;
 import de.interactive_instruments.etf.dal.dto.capabilities.TestObjectTypeDto;
+import de.interactive_instruments.etf.dal.dto.result.TestTaskResultDto;
 import de.interactive_instruments.etf.dal.dto.run.TestTaskDto;
 import de.interactive_instruments.etf.dal.dto.test.ExecutableTestSuiteDto;
 import de.interactive_instruments.etf.model.EID;
 import de.interactive_instruments.etf.model.EidFactory;
+import de.interactive_instruments.etf.testdriver.*;
 import de.interactive_instruments.exceptions.*;
 import de.interactive_instruments.exceptions.config.ConfigurationException;
+import de.interactive_instruments.exceptions.config.InvalidPropertyException;
 import de.interactive_instruments.properties.ConfigProperties;
 import de.interactive_instruments.properties.ConfigPropertyHolder;
-
-import static de.interactive_instruments.etf.EtfConstants.ETF_DATA_STORAGE_NAME;
-import static de.interactive_instruments.etf.testdriver.bsx.BsxTestDriver.BSX_TEST_DRIVER_EID;
 
 /**
  * BaseX test driver component
@@ -123,7 +123,7 @@ public class BsxTestDriver implements TestDriver {
 			testTaskDto.setTestTaskResult(testTaskResult);
 			return new BasexTestTask(testTaskDto, configProperties
 					.getPropertyOrDefaultAsLong(BsxConstants.DB_MAX_CHUNK_SIZE, DEFAULT_MAX_CHUNK_SIZE), dataStorageCallback);
-		}catch (InvalidPropertyException | IncompleteDtoException e) {
+		} catch (InvalidPropertyException | IncompleteDtoException e) {
 			throw new TestTaskInitializationException(e);
 		}
 
@@ -139,7 +139,7 @@ public class BsxTestDriver implements TestDriver {
 			throws ConfigurationException, IllegalStateException, InitializationException, InvalidStateTransitionException {
 		configProperties.expectAllRequiredPropertiesSet();
 		dataStorageCallback = DataStorageRegistry.instance().get(configProperties.getProperty(ETF_DATA_STORAGE_NAME));
-		if(dataStorageCallback== null) {
+		if (dataStorageCallback == null) {
 			throw new InvalidStateTransitionException("Data Storage not set");
 		}
 
@@ -156,8 +156,7 @@ public class BsxTestDriver implements TestDriver {
 
 	private void propagateComponents() throws InitializationException {
 		// Propagate Component info from here
-		final WriteDao<ComponentDto> componentDao = ((WriteDao<ComponentDto>)
-				dataStorageCallback.getDao(ComponentDto.class));
+		final WriteDao<ComponentDto> componentDao = ((WriteDao<ComponentDto>) dataStorageCallback.getDao(ComponentDto.class));
 		try {
 			try {
 				componentDao.delete(this.getInfo().getId());
@@ -165,14 +164,14 @@ public class BsxTestDriver implements TestDriver {
 				ExcUtils.suppress(e);
 			}
 			componentDao.add(new ComponentDto(this.getInfo()));
-		}catch (StorageException e) {
+		} catch (StorageException e) {
 			throw new InitializationException(e);
 		}
 	}
 
 	@Override
 	public boolean isInitialized() {
-		return dataStorageCallback!=null && typeLoader !=null && typeLoader.isInitialized();
+		return dataStorageCallback != null && typeLoader != null && typeLoader.isInitialized();
 	}
 
 	@Override
