@@ -19,6 +19,7 @@ import java.io.File;
 import java.io.FileFilter;
 import java.nio.file.Path;
 
+import de.interactive_instruments.io.MultiFileFilter;
 import de.interactive_instruments.io.PathFilter;
 
 /**
@@ -27,11 +28,11 @@ import de.interactive_instruments.io.PathFilter;
  *
  * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
  */
-class BasexTestObjectFileFilter implements FileFilter, PathFilter {
+class BasexTestObjectFileFilter implements MultiFileFilter {
 
 	private final FileFilter ff;
 
-	public BasexTestObjectFileFilter(FileFilter ff) {
+	public BasexTestObjectFileFilter(final FileFilter ff) {
 		this.ff = ff;
 	}
 
@@ -40,14 +41,9 @@ class BasexTestObjectFileFilter implements FileFilter, PathFilter {
 	}
 
 	@Override
-	public boolean accept(File pathname) {
+	public boolean accept(final File pathname) {
 		final String p = pathname.getName().toUpperCase();
 		return '.' != p.charAt(0) && (p.endsWith(".XML") || p.endsWith(".GML")) && (ff == null || ff
 				.accept(pathname));
-	}
-
-	@Override
-	public boolean accept(Path path) {
-		return accept(path.toFile());
 	}
 }
