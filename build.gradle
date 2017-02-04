@@ -41,7 +41,7 @@ repositories {
 	maven { url 'http://files.basex.org/maven' }
 }
 
-ext.basexVersion = '8.5.3'
+ext.basexVersion = '8.5.5-ii'
 
 configurations {
 	compile.exclude group:'xalan'
