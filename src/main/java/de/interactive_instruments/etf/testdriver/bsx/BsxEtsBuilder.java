@@ -72,7 +72,7 @@ class BsxEtsBuilder implements TypeBuildingFileVisitor.TypeBuilder<ExecutableTes
 			}
 			this.id = oid.substring(3);
 
-			// Parse ETS dependencies
+			// Set ETS dependencies
 			final String[] etsStrIds = XmlUtils.newXmlHandle(xpath, path.toFile()).evaluateValues(
 					"/etf:ExecutableTestSuite[1]/etf:dependencies[1]/etf:executableTestSuite/@ref");
 			if (etsStrIds != null) {
@@ -84,13 +84,26 @@ class BsxEtsBuilder implements TypeBuildingFileVisitor.TypeBuilder<ExecutableTes
 				}
 			}
 
-			// Parse Translation Template Bundle
-			final String ttbId = XmlUtils.newXmlHandle(xpath, path.toFile()).evaluateValue("/etf:ExecutableTestSuite[1]/etf:translationTemplateBundle[1]/@ref");
+			// Set Translation Template Bundle dependency
+			final String ttbId = XmlUtils.newXmlHandle(xpath, path.toFile()).evaluateValue(
+					"/etf:ExecutableTestSuite[1]/etf:translationTemplateBundle[1]/@ref");
 			if (!SUtils.isNullOrEmpty(ttbId)) {
 				if (ttbId.length() != 39) {
 					throw new IOException("ID " + ttbId + " is invalid");
 				}
 				dependsOn(ttbId.substring(3));
+			}
+
+			// Set Tag dependencies
+			final String[] tagIds = XmlUtils.newXmlHandle(xpath, path.toFile()).evaluateValues(
+					"/etf:ExecutableTestSuite[1]/etf:tags[1]/etf:tag/@ref");
+			if (tagIds != null) {
+				for (final String tagId : tagIds) {
+					if (tagId.length() != 39) {
+						throw new IOException("ID " + tagId + " is invalid");
+					}
+					dependsOn(tagId.substring(3));
+				}
 			}
 		}
 

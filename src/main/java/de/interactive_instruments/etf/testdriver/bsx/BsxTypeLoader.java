@@ -19,20 +19,23 @@ import static de.interactive_instruments.etf.testdriver.bsx.Types.TEST_ITEM_TYPE
 import static de.interactive_instruments.etf.testdriver.bsx.Types.TEST_OBJECT_TYPES;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
 
 import de.interactive_instruments.etf.EtfConstants;
 import de.interactive_instruments.etf.dal.dao.DataStorage;
 import de.interactive_instruments.etf.dal.dao.WriteDao;
 import de.interactive_instruments.etf.dal.dto.Dto;
-import de.interactive_instruments.etf.dal.dto.capabilities.TagDto;
 import de.interactive_instruments.etf.dal.dto.capabilities.TestObjectTypeDto;
 import de.interactive_instruments.etf.dal.dto.test.ExecutableTestSuiteDto;
 import de.interactive_instruments.etf.dal.dto.test.TestItemTypeDto;
-import de.interactive_instruments.etf.dal.dto.translation.TranslationTemplateBundleDto;
-import de.interactive_instruments.etf.model.*;
-import de.interactive_instruments.etf.testdriver.*;
-import de.interactive_instruments.exceptions.*;
+import de.interactive_instruments.etf.model.EID;
+import de.interactive_instruments.etf.testdriver.EtsTypeLoader;
+import de.interactive_instruments.etf.testdriver.TypeBuildingFileVisitor;
+import de.interactive_instruments.exceptions.ExcUtils;
+import de.interactive_instruments.exceptions.InitializationException;
+import de.interactive_instruments.exceptions.InvalidStateTransitionException;
+import de.interactive_instruments.exceptions.StorageException;
 import de.interactive_instruments.exceptions.config.ConfigurationException;
 import de.interactive_instruments.properties.ConfigProperties;
 import de.interactive_instruments.properties.ConfigPropertyHolder;
@@ -49,7 +52,7 @@ import de.interactive_instruments.properties.ConfigPropertyHolder;
  *
  * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
  */
-public class BsxTypeLoader extends AbstractTypeLoader {
+public class BsxTypeLoader extends EtsTypeLoader {
 
 	private final ConfigProperties configProperties;
 
@@ -60,9 +63,6 @@ public class BsxTypeLoader extends AbstractTypeLoader {
 		super(dataStorage, new ArrayList<TypeBuildingFileVisitor.TypeBuilder<? extends Dto>>() {
 			{
 				add(new BsxEtsBuilder(dataStorage.getDao(ExecutableTestSuiteDto.class)));
-				add(new TranslationTemplateBundleBuilder(dataStorage.getDao(TranslationTemplateBundleDto.class)));
-				add(new TestObjectTypeBuilder(dataStorage.getDao(TestObjectTypeDto.class)));
-				add(new TagBuilder(dataStorage.getDao(TagDto.class)));
 			}
 		});
 		this.configProperties = new ConfigProperties(EtfConstants.ETF_PROJECTS_DIR);
@@ -73,9 +73,9 @@ public class BsxTypeLoader extends AbstractTypeLoader {
 			throws ConfigurationException, InitializationException, InvalidStateTransitionException {
 
 		this.configProperties.expectAllRequiredPropertiesSet();
-		this.etsDir = configProperties.getPropertyAsFile(EtfConstants.ETF_PROJECTS_DIR);
+		this.watchDir = configProperties.getPropertyAsFile(EtfConstants.ETF_PROJECTS_DIR);
 		try {
-			this.etsDir.expectDirIsReadable();
+			this.watchDir.expectDirIsReadable();
 		} catch (IOException e) {
 			throw new InitializationException(e);
 		}
