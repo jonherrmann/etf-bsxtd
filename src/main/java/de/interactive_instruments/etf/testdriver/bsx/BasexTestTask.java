@@ -183,17 +183,17 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 		if (!SUtils.isNullOrEmpty(schemaFilePath)) {
 			final IFile schemaFile = projDir.secureExpandPathDown(schemaFilePath);
 			schemaFile.expectIsReadable();
-			getLogger().info("Initializing parallel schema validation");
+			getLogger().info("Initializing parallel schema validation.");
 			schemaValidatorManager = new ParalellSchemaValidationManager(schemaFile);
 		} else {
 			schemaValidatorManager = new ParalellSchemaValidationManager();
-			getLogger().info("The Validation is skipped because no schema file has been set. Input data are only checked for well-formedness.");
+			getLogger().info("Skipping schema validation because no schema file has been set in the test suite. Data are only checked for well-formedness.");
 		}
 
 		// Initialize Database Partitioner
 		final DatabaseVisitor databaseVisitor;
 		if (testObjectChanged) {
-			databaseVisitor = new DatabasePartitioner(maxDbChunkSize, getLogger(), this.dbName);
+			databaseVisitor = new DatabasePartitioner(maxDbChunkSize, getLogger(), this.dbName, testDataDirDir.getAbsolutePath().length());
 		} else {
 			databaseVisitor = new DatabaseInventarization(maxDbChunkSize);
 		}

@@ -40,7 +40,8 @@ public class DatabasePartitioner implements DatabaseVisitor {
 	private final Set<String> skippedFiles = new TreeSet<>();
 	private final Logger logger;
 
-	// Needs to be synchronized in block if a new chunk is generated
+	// Needs to be syn
+	// chronized in block if a new chunk is generated
 	private int currentDbIndex = 0;
 	// Needs to be synchronized in block if a new chunk is generated
 	private String currentDbName;
@@ -53,10 +54,14 @@ public class DatabasePartitioner implements DatabaseVisitor {
 	// Needs to be synchronized in block if new file is added
 	private long size = 0L;
 
+	// Cut the first part of the added file name
+	private final int filenameCutIndex;
+
 	public DatabasePartitioner(long maxDbSizeSizePerChunk, final Logger logger,
-			final String dbName) throws BaseXException {
+			final String dbName, final int filenameCutIndex) throws BaseXException {
 		this.dbBaseName = dbName;
 		this.logger = logger;
+		this.filenameCutIndex = filenameCutIndex;
 		this.maxDbSizeSizePerChunk = maxDbSizeSizePerChunk;
 		this.currentDbName = dbBaseName + "-0";
 
@@ -118,7 +123,8 @@ public class DatabasePartitioner implements DatabaseVisitor {
 		}
 
 		try {
-			new Add(file.getFileName().toString(), file.toString()).execute(ctx);
+			final String fileName = file.toAbsolutePath().toString().substring(filenameCutIndex);
+			new Add(fileName, file.toString()).execute(ctx);
 			currentDbSize.addAndGet(attrs.size());
 			synchronized (this) {
 				fileCount++;
