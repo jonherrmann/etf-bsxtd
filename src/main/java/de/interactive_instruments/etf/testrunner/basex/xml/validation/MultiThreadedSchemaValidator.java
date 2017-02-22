@@ -46,7 +46,6 @@ import de.interactive_instruments.io.PathFilter;
  */
 public class MultiThreadedSchemaValidator implements Releasable {
 
-	private static final int MAX_ERRORS = 1000;
 	private static final int MAX_DIR_DEPTH = 5;
 	private static final int MAX_VAL_TIMEOUT_H = 36;
 
@@ -65,10 +64,10 @@ public class MultiThreadedSchemaValidator implements Releasable {
 	 * @throws SAXException
 	 */
 	public MultiThreadedSchemaValidator(final IFile dir, final PathFilter filter,
-			final IFile schemaFile) throws SAXException {
+			final IFile schemaFile, final int errorLimit) throws SAXException {
 		this.filter = filter;
 		this.dir = dir;
-		this.collHandler = new ValidatorErrorCollector(MAX_ERRORS);
+		this.collHandler = new ValidatorErrorCollector(errorLimit);
 		schema = SchemaFactory.newInstance("http://www.w3.org/2001/XMLSchema").newSchema(schemaFile);
 	}
 

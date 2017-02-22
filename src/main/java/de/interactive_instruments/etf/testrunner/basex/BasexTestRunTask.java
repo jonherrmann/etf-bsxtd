@@ -53,6 +53,7 @@ class BasexTestRunTask extends AbstractTestRunTask {
 
 	private final String dbName;
 	private final Context ctx;
+	private final int maxErrors;
 	private QueryProcessor proc;
 	// The basex project file
 	private final IFile projectFile;
@@ -87,6 +88,16 @@ class BasexTestRunTask extends AbstractTestRunTask {
 		this.projectFile = projectFile;
 		this.projDir = new IFile(projectFile.getParentFile());
 
+		int tmpMaxErrors = 1000;
+		// workarounds for language specific parameters in etf v 1.0
+		final String errorLimitStr = testRun.getPropertyOrDefault("Maximale_Anzahl_von_Fehlermeldungen_pro_Test", "1000");
+		// default fallback
+		if (!SUtils.isNullOrEmpty(errorLimitStr)) {
+			try {
+				tmpMaxErrors = Integer.valueOf(errorLimitStr);
+			} catch (final NumberFormatException ign) {}
+		}
+		this.maxErrors = tmpMaxErrors;
 	}
 
 	@Override
@@ -171,7 +182,7 @@ class BasexTestRunTask extends AbstractTestRunTask {
 			final IFile schemaFile = projDir.secureExpandPathDown(schemaFilePath);
 			schemaFile.expectIsReadable();
 			logInfo("Starting parallel schema validation");
-			mtsv = new MultiThreadedSchemaValidator(testDataDirDir, filter, schemaFile);
+			mtsv = new MultiThreadedSchemaValidator(testDataDirDir, filter, schemaFile, this.maxErrors);
 			mtsv.validate();
 			logInfo("Validation ended with " + mtsv.getErrorCount() + " error(s)");
 			if (mtsv.getErrorCount() > 0) {
