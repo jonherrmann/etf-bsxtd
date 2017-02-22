@@ -180,13 +180,22 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 
 		// Initialize the validator
 		final ParalellSchemaValidationManager schemaValidatorManager;
+		int maxErrors = 100;
+		testTaskDto.getArguments().value("maximum_number_of_error_messages_per_test");
+		final String errorLimitStr = testTaskDto.getArguments().value("maximum_number_of_error_messages_per_test");
+		// default fallback
+		if(!SUtils.isNullOrEmpty(errorLimitStr)) {
+			try {
+				maxErrors = Integer.valueOf(errorLimitStr);
+			}catch (final NumberFormatException ign) {}
+		}
 		if (!SUtils.isNullOrEmpty(schemaFilePath)) {
 			final IFile schemaFile = projDir.secureExpandPathDown(schemaFilePath);
 			schemaFile.expectIsReadable();
 			getLogger().info("Initializing parallel schema validation.");
-			schemaValidatorManager = new ParalellSchemaValidationManager(schemaFile);
+			schemaValidatorManager = new ParalellSchemaValidationManager(schemaFile, maxErrors);
 		} else {
-			schemaValidatorManager = new ParalellSchemaValidationManager();
+			schemaValidatorManager = new ParalellSchemaValidationManager(maxErrors);
 			getLogger().info("Skipping schema validation because no schema file has been set in the test suite. Data are only checked for well-formedness.");
 		}
 
