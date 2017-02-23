@@ -16,10 +16,14 @@
 package de.interactive_instruments.etf.testrunner.basex.xml.validation;
 
 import java.io.File;
+import java.text.NumberFormat;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.xml.sax.ErrorHandler;
 import org.xml.sax.SAXException;
@@ -35,20 +39,21 @@ import de.interactive_instruments.Releasable;
 class ValidatorErrorCollector implements Releasable {
 
 	private final StringBuilder sb = new StringBuilder();
-	private int errors = 0;
-	private final int maxErrors;
+	private final long maxErrors;
+	private final AtomicLong testedFiles = new AtomicLong(0);
+	private final AtomicLong errorCounter = new AtomicLong(0);
 	private final ConcurrentMap<File, Integer> errorsPerFile = new ConcurrentSkipListMap<>();
 
 	/**
-	 * Saves a error message
+	 * Saves an error message
 	 *
 	 * @param str message
 	 */
-	public synchronized void collectError(String str) {
-		++errors;
-		if (errors < maxErrors) {
-			sb.append(str);
+	void collectError(final String str, final File file, final int errorsInFile) {
+		if (errorCounter.getAndAdd(errorsInFile) < maxErrors) {
+				sb.append(str);
 		}
+		errorsPerFile.put(file, errorsInFile);
 	}
 
 	/**
@@ -58,23 +63,54 @@ class ValidatorErrorCollector implements Releasable {
 	 */
 	public String getErrorMessages() {
 		if (!errorsPerFile.isEmpty()) {
-
-			int errorsPerFileCounter = 0;
-			for (Map.Entry<File, Integer> e : errorsPerFile.entrySet()) {
-				if (errorsPerFileCounter < maxErrors) {
+			final Iterator<Map.Entry<File, Integer>> iterator = errorsPerFile.entrySet().iterator();
+			// list at least 25 invalid files
+			long maxErrorsPerFileCounter = maxErrors + 25;
+			long errorsPerFileCounter = errorCounter.get()<maxErrors ?
+					errorCounter.get() : maxErrors;
+			for (; iterator.hasNext(); errorsPerFileCounter++) {
+				final Map.Entry<File, Integer> e = iterator.next();
+				if (errorsPerFileCounter < maxErrorsPerFileCounter) {
 					sb.append(e.getValue());
 					sb.append(" errors in file ");
 					sb.append(e.getKey().getName());
-					errorsPerFileCounter++;
+					if(iterator.hasNext()) {
+						sb.append(System.lineSeparator());
+					}
 				} else {
-					sb.append((errorsPerFileCounter - maxErrors));
-					sb.append(" additional error messages skipped!");
+					sb.append("The listing of additional files with errors is skipped.");
+					sb.append(System.lineSeparator());
 					break;
 				}
 			}
 		}
-		return sb.toString() + (errors < maxErrors ? "" : System.lineSeparator() +
-				(errors - maxErrors) + " additional error messages were skipped!");
+		final long c = errorCounter.get();
+		if(c <= maxErrors) {
+			return sb.toString();
+		}else {
+			final StringBuilder out = new StringBuilder(sb.length()+128);
+			out.append(sb);
+			out.append(System.lineSeparator());
+			out.append(c - maxErrors);
+			out.append(" additional error messages were skipped. ");
+			final long f = testedFiles.get();
+			if(f==errorsPerFile.size()) {
+				out.append("None of the ");
+				out.append(f);
+				out.append(" files is schema-valid.");
+			}else {
+				out.append(+errorsPerFile.size());
+				out.append(" files of ");
+				out.append(f);
+				out.append(" (");
+				final NumberFormat percentFormat = NumberFormat.getPercentInstance();
+				percentFormat.setMinimumFractionDigits(1);
+				percentFormat.setMaximumFractionDigits(2);
+				out.append(percentFormat.format( ((double) errorsPerFile.size()) / ((double) f)));
+				out.append(") are not schema-valid.");
+			}
+			return out.toString();
+		}
 	}
 
 	public Set<File> getInvalidFiles() {
@@ -87,7 +123,7 @@ class ValidatorErrorCollector implements Releasable {
 	 * @return
 	 */
 	public int getErrorCount() {
-		return errors;
+		return errorsPerFile.size();
 	}
 
 	/**
@@ -95,8 +131,8 @@ class ValidatorErrorCollector implements Releasable {
 	 *
 	 * @param maxErrors maximum number of errors that will be saved
 	 */
-	public ValidatorErrorCollector(int maxErrors) {
-		this.maxErrors = maxErrors;
+	public ValidatorErrorCollector(long maxErrors) {
+		this.maxErrors = maxErrors<8 ? 8 : maxErrors;
 	}
 
 	/**
@@ -106,19 +142,26 @@ class ValidatorErrorCollector implements Releasable {
 
 		private final File file;
 		private int errorsInFile;
+		// avoid errorCounter sync between threads
+		private long approxMax = maxErrors-errorCounter.get()-1;
 		private final StringBuilder lSb = new StringBuilder();
 
 		ValidatorErrorHandler(final File file) {
 			this.file = file;
 		}
 
-		private void logError(String severity, SAXParseException e) {
+		private void logError(final String severity, final SAXParseException e) {
 			++errorsInFile;
-			lSb.append(severity + " in file " + file.getName() +
-					" line " + e.getLineNumber() +
-					" column " + e.getColumnNumber() +
-					" : " + System.lineSeparator() + e.toString() +
-					System.lineSeparator());
+			if(errorsInFile<approxMax) {
+				final String message = e.getMessage();
+				lSb.append(severity).append(" in file ").append(file.getName()).
+						append("( line ").append(e.getLineNumber()).append(", column ").
+						append(e.getColumnNumber()).append(") : ");
+				if (message.length() > 130) {
+					lSb.append(System.lineSeparator());
+				}
+				lSb.append(message).append(System.lineSeparator());
+			}
 		}
 
 		@Override
@@ -128,25 +171,27 @@ class ValidatorErrorCollector implements Releasable {
 
 		@Override
 		public void error(SAXParseException e) throws SAXException {
-			logError("ERROR", e);
+			logError("Error", e);
 		}
 
 		@Override
 		public void fatalError(SAXParseException e) throws SAXException {
-			logError("FATAL ERROR", e);
+			logError("Fatal error", e);
 		}
 
 		@Override
 		public void release() {
 			if (errorsInFile > 0) {
-				collectError(lSb.toString());
-				errorsPerFile.put(file, errorsInFile);
+				collectError(lSb.toString(), file, errorsInFile);
 			}
+			testedFiles.incrementAndGet();
 		}
 	}
 
 	@Override
 	public void release() {
+		errorCounter.set(0);
+		testedFiles.set(0);
 		errorsPerFile.clear();
 	}
 

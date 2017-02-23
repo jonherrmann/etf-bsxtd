@@ -158,7 +158,7 @@ public class MultiThreadedSchemaValidator implements Releasable {
 			spf.setNamespaceAware(true);
 			final XMLReader reader = spf.newSAXParser().getXMLReader();
 			final ValidatorHandler vh = schema.newValidatorHandler();
-			ValidatorErrorCollector.ValidatorErrorHandler eh = collHandler.newErrorHandler(inputFile);
+			final ValidatorErrorCollector.ValidatorErrorHandler eh = collHandler.newErrorHandler(inputFile);
 			vh.setErrorHandler(eh);
 			reader.setContentHandler(vh);
 			bufferedReader = getRemovedBomReader(inputFile);

@@ -88,9 +88,9 @@ class BasexTestRunTask extends AbstractTestRunTask {
 		this.projectFile = projectFile;
 		this.projDir = new IFile(projectFile.getParentFile());
 
-		int tmpMaxErrors = 1000;
+		int tmpMaxErrors = 100;
 		// workarounds for language specific parameters in etf v 1.0
-		final String errorLimitStr = testRun.getPropertyOrDefault("Maximale_Anzahl_von_Fehlermeldungen_pro_Test", "1000");
+		final String errorLimitStr = testRun.getPropertyOrDefault("Maximale_Anzahl_von_Fehlermeldungen_pro_Test", "100");
 		// default fallback
 		if (!SUtils.isNullOrEmpty(errorLimitStr)) {
 			try {
