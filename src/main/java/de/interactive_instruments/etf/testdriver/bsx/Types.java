@@ -23,7 +23,7 @@ import de.interactive_instruments.etf.model.EidFactory;
 import de.interactive_instruments.etf.model.EidMap;
 
 /**
- * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
+ * @author Jon Herrmann ( herrmann aT interactive-instruments doT de )
  */
 class Types {
 
@@ -40,7 +40,7 @@ class Types {
 				final TestItemTypeDto testItemTypeDto = new TestItemTypeDto();
 				testItemTypeDto.setLabel("Test Data Query Test Step");
 				testItemTypeDto.setId(EidFactory.getDefault().createAndPreserveStr("f483e8e8-06b9-4900-ab36-adad0d7f22f0"));
-				testItemTypeDto.setDescription("TODO description");
+				testItemTypeDto.setDescription("Test Data Query Test Step");
 				testItemTypeDto.setReference(
 						"https://github.com/interactive-instruments/etf-bsxtd/wiki/Test-Step-Types#teststeptype1");
 				put(testItemTypeDto.getId(), testItemTypeDto);
@@ -75,7 +75,6 @@ class Types {
 						"https://github.com/interactive-instruments/etf-bsxtd/wiki/Test-Assertion-Types#test-assertion-type-4");
 				put(testItemTypeDto.getId(), testItemTypeDto);
 			}
-
 		}
 	};
 }

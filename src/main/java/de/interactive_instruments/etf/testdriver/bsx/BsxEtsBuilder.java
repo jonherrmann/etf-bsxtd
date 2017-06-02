@@ -1,5 +1,5 @@
 /**
- * Copyright 2010-2016 interactive instruments GmbH
+ * Copyright 2010-2017 interactive instruments GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ import de.interactive_instruments.etf.testdriver.TypeBuildingFileVisitor;
 import de.interactive_instruments.exceptions.StorageException;
 
 /**
- * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
+ * @author Jon Herrmann ( herrmann aT interactive-instruments doT de )
  */
 class BsxEtsBuilder implements TypeBuildingFileVisitor.TypeBuilder<ExecutableTestSuiteDto> {
 
@@ -55,7 +55,8 @@ class BsxEtsBuilder implements TypeBuildingFileVisitor.TypeBuilder<ExecutableTes
 
 		private final StreamWriteDao<ExecutableTestSuiteDto> writeDao;
 
-		BsxEtsBuilderCmd(final Path path, final StreamWriteDao<ExecutableTestSuiteDto> writeDao) throws IOException, XPathExpressionException {
+		BsxEtsBuilderCmd(final Path path, final StreamWriteDao<ExecutableTestSuiteDto> writeDao)
+				throws IOException, XPathExpressionException {
 			super(path);
 			this.writeDao = writeDao;
 
@@ -118,7 +119,7 @@ class BsxEtsBuilder implements TypeBuildingFileVisitor.TypeBuilder<ExecutableTes
 					dto.setLocalPath(file.getAbsolutePath());
 					return dto;
 				});
-			} catch (IOException | StorageException e) {
+			} catch (IOException e) {
 				logger.error("Error creating Executable Test Suite from file {}", path, e);
 			}
 			return null;

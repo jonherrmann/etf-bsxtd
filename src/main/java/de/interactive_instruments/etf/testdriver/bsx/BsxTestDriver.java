@@ -1,5 +1,5 @@
 /**
- * Copyright 2010-2016 interactive instruments GmbH
+ * Copyright 2010-2017 interactive instruments GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,12 @@ package de.interactive_instruments.etf.testdriver.bsx;
 
 import static de.interactive_instruments.etf.EtfConstants.ETF_DATA_STORAGE_NAME;
 import static de.interactive_instruments.etf.testdriver.bsx.BsxTestDriver.BSX_TEST_DRIVER_EID;
+import static de.interactive_instruments.etf.testdriver.bsx.Types.BSX_SUPPORTED_TEST_OBJECT_TYPES;
 
 import java.util.*;
 
+import de.interactive_instruments.etf.dal.dto.capabilities.TestObjectDto;
+import de.interactive_instruments.etf.model.capabilities.TestObject;
 import org.basex.BaseX;
 
 import de.interactive_instruments.etf.component.ComponentInfo;
@@ -44,15 +47,13 @@ import de.interactive_instruments.properties.ConfigPropertyHolder;
 /**
  * BaseX test driver component
  *
- * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
+ * @author Jon Herrmann ( herrmann aT interactive-instruments doT de )
  */
 @ComponentInitializer(id = BSX_TEST_DRIVER_EID)
-public class BsxTestDriver implements TestDriver {
+public class BsxTestDriver extends AbstractTestDriver {
 
 	public static final String BSX_TEST_DRIVER_EID = "4dddc9e2-1b21-40b7-af70-6a2d156ad130";
-	private BsxTypeLoader typeLoader;
 	public static final long DEFAULT_MAX_CHUNK_SIZE = 33500000000L;
-	final private ConfigProperties configProperties = new ConfigProperties(ETF_DATA_STORAGE_NAME, BsxConstants.PROJECT_DIR_KEY);
 	private DataStorage dataStorageCallback;
 
 	private final ComponentInfo info = new ComponentInfo() {
@@ -82,32 +83,18 @@ public class BsxTestDriver implements TestDriver {
 		}
 	};
 
-	@Override
-	public Collection<ExecutableTestSuiteDto> getExecutableTestSuites() {
-		return typeLoader.getExecutableTestSuites();
+	public BsxTestDriver() {
+		super(new ConfigProperties(ETF_DATA_STORAGE_NAME, BsxConstants.PROJECT_DIR_KEY));
 	}
 
 	@Override
 	public Collection<TestObjectTypeDto> getTestObjectTypes() {
-		return typeLoader.getTestObjectTypes();
+		return BSX_SUPPORTED_TEST_OBJECT_TYPES.values();
 	}
 
 	@Override
 	final public ComponentInfo getInfo() {
 		return info;
-	}
-
-	@Override
-	public void lookupExecutableTestSuites(final EtsLookupRequest etsLookupRequest) {
-		final Set<EID> etsIds = etsLookupRequest.getUnknownEts();
-		final Set<ExecutableTestSuiteDto> knownEts = new HashSet<>();
-		for (final EID etsId : etsIds) {
-			final ExecutableTestSuiteDto ets = typeLoader.getExecutableTestSuiteById(etsId);
-			if (ets != null) {
-				knownEts.add(ets);
-			}
-		}
-		etsLookupRequest.addKnownEts(knownEts);
 	}
 
 	@Override
@@ -121,23 +108,15 @@ public class BsxTestDriver implements TestDriver {
 			final TestTaskResultDto testTaskResult = new TestTaskResultDto();
 			testTaskResult.setId(EidFactory.getDefault().createRandomId());
 			testTaskDto.setTestTaskResult(testTaskResult);
-			return new BasexTestTask(testTaskDto, configProperties
-					.getPropertyOrDefaultAsLong(BsxConstants.DB_MAX_CHUNK_SIZE, DEFAULT_MAX_CHUNK_SIZE), dataStorageCallback);
+			return new BasexTestTask(testTaskDto, ((WriteDao)dataStorageCallback.getDao(TestObjectDto.class)),
+					configProperties.getPropertyOrDefaultAsLong(BsxConstants.DB_MAX_CHUNK_SIZE, DEFAULT_MAX_CHUNK_SIZE));
 		} catch (InvalidPropertyException | IncompleteDtoException e) {
 			throw new TestTaskInitializationException(e);
 		}
 
 	}
 
-	@Override
-	public ConfigPropertyHolder getConfigurationProperties() {
-		return this.configProperties;
-	}
-
-	@Override
-	final public void init()
-			throws ConfigurationException, IllegalStateException, InitializationException, InvalidStateTransitionException {
-		configProperties.expectAllRequiredPropertiesSet();
+	@Override protected void doInit() throws ConfigurationException, InitializationException, InvalidStateTransitionException {
 		dataStorageCallback = DataStorageRegistry.instance().get(configProperties.getProperty(ETF_DATA_STORAGE_NAME));
 		if (dataStorageCallback == null) {
 			throw new InvalidStateTransitionException("Data Storage not set");
@@ -151,7 +130,6 @@ public class BsxTestDriver implements TestDriver {
 
 		typeLoader = new BsxTypeLoader(dataStorageCallback);
 		typeLoader.getConfigurationProperties().setPropertiesFrom(configProperties, true);
-		typeLoader.init();
 	}
 
 	private void propagateComponents() throws InitializationException {
@@ -169,13 +147,7 @@ public class BsxTestDriver implements TestDriver {
 		}
 	}
 
-	@Override
-	public boolean isInitialized() {
-		return dataStorageCallback != null && typeLoader != null && typeLoader.isInitialized();
-	}
+	@Override protected void doRelease() {
 
-	@Override
-	public void release() {
-		typeLoader.release();
 	}
 }

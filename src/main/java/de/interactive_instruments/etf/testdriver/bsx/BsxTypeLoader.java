@@ -1,5 +1,5 @@
 /**
- * Copyright 2010-2016 interactive instruments GmbH
+ * Copyright 2010-2017 interactive instruments GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,13 @@
  */
 package de.interactive_instruments.etf.testdriver.bsx;
 
+import static de.interactive_instruments.etf.testdriver.bsx.Types.BSX_SUPPORTED_TEST_OBJECT_TYPES;
 import static de.interactive_instruments.etf.testdriver.bsx.Types.TEST_ITEM_TYPES;
-import static de.interactive_instruments.etf.testdriver.bsx.Types.TEST_OBJECT_TYPES;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Set;
 
 import de.interactive_instruments.etf.EtfConstants;
 import de.interactive_instruments.etf.dal.dao.DataStorage;
@@ -30,7 +31,9 @@ import de.interactive_instruments.etf.dal.dto.capabilities.TestObjectTypeDto;
 import de.interactive_instruments.etf.dal.dto.test.ExecutableTestSuiteDto;
 import de.interactive_instruments.etf.dal.dto.test.TestItemTypeDto;
 import de.interactive_instruments.etf.model.EID;
-import de.interactive_instruments.etf.testdriver.EtsTypeLoader;
+import de.interactive_instruments.etf.model.EidMap;
+import de.interactive_instruments.etf.model.EidSet;
+import de.interactive_instruments.etf.testdriver.AbstractEtsFileTypeLoader;
 import de.interactive_instruments.etf.testdriver.TypeBuildingFileVisitor;
 import de.interactive_instruments.exceptions.ExcUtils;
 import de.interactive_instruments.exceptions.InitializationException;
@@ -50,9 +53,9 @@ import de.interactive_instruments.properties.ConfigPropertyHolder;
  *
  * The Component Info is propagated by the Test Driver
  *
- * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
+ * @author Jon Herrmann ( herrmann aT interactive-instruments doT de )
  */
-public class BsxTypeLoader extends EtsTypeLoader {
+public class BsxTypeLoader extends AbstractEtsFileTypeLoader {
 
 	private final ConfigProperties configProperties;
 
@@ -60,11 +63,7 @@ public class BsxTypeLoader extends EtsTypeLoader {
 	 * Default constructor.
 	 */
 	public BsxTypeLoader(final DataStorage dataStorage) {
-		super(dataStorage, new ArrayList<TypeBuildingFileVisitor.TypeBuilder<? extends Dto>>() {
-			{
-				add(new BsxEtsBuilder(dataStorage.getDao(ExecutableTestSuiteDto.class)));
-			}
-		});
+		super(dataStorage, new BsxEtsBuilder(dataStorage.getDao(ExecutableTestSuiteDto.class)));
 		this.configProperties = new ConfigProperties(EtfConstants.ETF_PROJECTS_DIR);
 	}
 
@@ -81,20 +80,12 @@ public class BsxTypeLoader extends EtsTypeLoader {
 		}
 
 		// First propagate static types
-		final WriteDao<TestObjectTypeDto> testObjectTypeDao = ((WriteDao<TestObjectTypeDto>) dataStorageCallback.getDao(TestObjectTypeDto.class));
-		final WriteDao<TestItemTypeDto> testItemTypeDao = ((WriteDao<TestItemTypeDto>) dataStorageCallback.getDao(TestItemTypeDto.class));
+		final WriteDao<TestItemTypeDto> testItemTypeDao = ((WriteDao<TestItemTypeDto>) dataStorageCallback
+				.getDao(TestItemTypeDto.class));
 		try {
-			testObjectTypeDao.deleteAllExisting(TEST_OBJECT_TYPES.keySet());
-			testObjectTypeDao.addAll(TEST_OBJECT_TYPES.values());
-
 			testItemTypeDao.deleteAllExisting(TEST_ITEM_TYPES.keySet());
 			testItemTypeDao.addAll(TEST_ITEM_TYPES.values());
 		} catch (final StorageException e) {
-			try {
-				testObjectTypeDao.deleteAllExisting(TEST_OBJECT_TYPES.keySet());
-			} catch (StorageException e2) {
-				ExcUtils.suppress(e2);
-			}
 			try {
 				testItemTypeDao.deleteAllExisting(TEST_ITEM_TYPES.keySet());
 			} catch (StorageException e3) {
@@ -109,11 +100,4 @@ public class BsxTypeLoader extends EtsTypeLoader {
 		return configProperties;
 	}
 
-	TestObjectTypeDto getTestObjectTypeById(final EID id) {
-		return TEST_OBJECT_TYPES.get(id);
-	}
-
-	Collection<TestObjectTypeDto> getTestObjectTypes() {
-		return TEST_OBJECT_TYPES.values();
-	}
 }

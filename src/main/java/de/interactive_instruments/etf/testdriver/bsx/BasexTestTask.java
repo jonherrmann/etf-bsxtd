@@ -1,5 +1,5 @@
 /**
- * Copyright 2010-2016 interactive instruments GmbH
+ * Copyright 2010-2017 interactive instruments GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Map;
 
+import de.interactive_instruments.etf.testdriver.TestResultCollector;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.RegexFileFilter;
 import org.basex.core.BaseXException;
@@ -35,12 +36,8 @@ import org.basex.query.QueryProcessor;
 
 import de.interactive_instruments.IFile;
 import de.interactive_instruments.SUtils;
-import de.interactive_instruments.etf.dal.dao.DataStorage;
-import de.interactive_instruments.etf.dal.dao.StreamWriteDao;
 import de.interactive_instruments.etf.dal.dao.WriteDao;
-import de.interactive_instruments.etf.dal.dto.Dto;
 import de.interactive_instruments.etf.dal.dto.capabilities.TestObjectDto;
-import de.interactive_instruments.etf.dal.dto.result.TestTaskResultDto;
 import de.interactive_instruments.etf.dal.dto.run.TestRunDto;
 import de.interactive_instruments.etf.dal.dto.run.TestTaskDto;
 import de.interactive_instruments.etf.model.EID;
@@ -63,12 +60,13 @@ import de.interactive_instruments.validation.ParalellSchemaValidationManager;
 /**
  * BaseX test run task for executing XQuery on a BaseX database.
  *
- * @author J. Herrmann ( herrmann <aT) interactive-instruments (doT> de )
+ * @author Jon Herrmann ( herrmann aT interactive-instruments doT de )
  */
-class BasexTestTask<T extends Dto> extends AbstractTestTask {
+class BasexTestTask extends AbstractTestTask {
 
 	private final String dbName;
-	private final DataStorage dataStorageCallback;
+	// TODO remove
+	private final WriteDao<TestObjectDto> testObjectDao;
 	private final Context ctx;
 	// private final IFile dsDir;
 	private QueryProcessor proc;
@@ -76,6 +74,7 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 	private final IFile projectFile;
 	private final IFile projDir;
 	private final long maxDbChunkSize;
+	private final TestResultCollector resultCollector;
 
 	static class BasexTaskProgress extends AbstractTestTaskProgress {
 		void doInit(final long maxSteps) {
@@ -90,17 +89,19 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 	/**
 	 * Default constructor.
 	 *
+	 *
+	 * @param testObjectDao
 	 * @param maxDbChunkSize maximum size of one database chunk
 	 * @throws IOException I/O error
 	 * @throws QueryException database error
 	 */
-	public BasexTestTask(final TestTaskDto testTaskDto, final long maxDbChunkSize, final DataStorage dataStorageCallback) {
+	public BasexTestTask(final TestTaskDto testTaskDto, final WriteDao<TestObjectDto> testObjectDao, final long maxDbChunkSize) {
 		super(testTaskDto, new BasexTaskProgress(), BasexTestTask.class.getClassLoader());
+		this.testObjectDao = testObjectDao;
 
 		this.maxDbChunkSize = maxDbChunkSize;
 
 		this.dbName = BsxConstants.ETF_TESTDB_PREFIX + testTaskDto.getTestObject().getId().toString();
-		this.dataStorageCallback = dataStorageCallback;
 		this.ctx = new Context();
 		try {
 			this.projectFile = new IFile(new File(testTaskDto.getExecutableTestSuite().getLocalPath(),
@@ -110,6 +111,7 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 		}
 		// this.projectFile = new IFile(testTaskDto.getExecutableTestSuite().getLocalPath());
 		this.projDir = new IFile(projectFile.getParentFile());
+		this.resultCollector = this.getPersistor().getResultCollector();
 
 	}
 
@@ -184,10 +186,10 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 		testTaskDto.getArguments().value("maximum_number_of_error_messages_per_test");
 		final String errorLimitStr = testTaskDto.getArguments().value("maximum_number_of_error_messages_per_test");
 		// default fallback
-		if(!SUtils.isNullOrEmpty(errorLimitStr)) {
+		if (!SUtils.isNullOrEmpty(errorLimitStr)) {
 			try {
 				maxErrors = Integer.valueOf(errorLimitStr);
-			}catch (final NumberFormatException ign) {}
+			} catch (final NumberFormatException ign) {}
 		}
 		if (!SUtils.isNullOrEmpty(schemaFilePath)) {
 			final IFile schemaFile = projDir.secureExpandPathDown(schemaFilePath);
@@ -196,13 +198,15 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 			schemaValidatorManager = new ParalellSchemaValidationManager(schemaFile, maxErrors);
 		} else {
 			schemaValidatorManager = new ParalellSchemaValidationManager(maxErrors);
-			getLogger().info("Skipping schema validation because no schema file has been set in the test suite. Data are only checked for well-formedness.");
+			getLogger().info(
+					"Skipping schema validation because no schema file has been set in the test suite. Data are only checked for well-formedness.");
 		}
 
 		// Initialize Database Partitioner
 		final DatabaseVisitor databaseVisitor;
 		if (testObjectChanged) {
-			databaseVisitor = new DatabasePartitioner(maxDbChunkSize, getLogger(), this.dbName, testDataDirDir.getAbsolutePath().length());
+			databaseVisitor = new DatabasePartitioner(maxDbChunkSize, getLogger(), this.dbName,
+					testDataDirDir.getAbsolutePath().length());
 		} else {
 			databaseVisitor = new DatabaseInventarization(maxDbChunkSize);
 		}
@@ -221,7 +225,7 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 			testObject.properties().setProperty("size", String.valueOf(fileHashVisitor.getSize()));
 			testObject.properties().setProperty("sizeHR", FileUtils.byteCountToDisplaySize(fileHashVisitor.getSize()));
 			// Todo: use preparation task and update the DTO in the higher layer
-			((WriteDao<TestObjectDto>) dataStorageCallback.getDao(TestObjectDto.class)).updateWithoutEidChange(testObject);
+			testObjectDao.replace(testObject);
 			// FIXME
 			final TestRunDto testRunDto = ((TestRunDto) testTaskDto.getParent());
 			for (final TestTaskDto taskDto : testRunDto.getTestTasks()) {
@@ -276,7 +280,8 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 		proc.bind("$testTaskResultId", "EID" + this.testTaskDto.getTestTaskResult().getId());
 		proc.bind("$testRunId", "EID" + this.testTaskDto.getParent().getId());
 		proc.bind("$executableTestSuiteId", "EID" + this.testTaskDto.getExecutableTestSuite().getId());
-		proc.bind("$translationTemplateBundleId", "EID" + this.testTaskDto.getExecutableTestSuite().getTranslationTemplateBundle().getId());
+		proc.bind("$translationTemplateBundleId",
+				"EID" + this.testTaskDto.getExecutableTestSuite().getTranslationTemplateBundle().getId());
 
 		// Add errors about not well-formed or invalid XML
 		final String validationErrors = skippedFiles.toString() + schemaValidatorManager.getErrorMessages();
@@ -293,11 +298,7 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 		proc.value();
 
 		final FileInputStream fileStream = new FileInputStream(tmpResultFile);
-		// TODO: remove, when result collector will persist the results (see doRun in SUI TD)
-		// automatically with resultCollector.end()
-		final TestTaskResultDto testTaskResult = ((StreamWriteDao<TestTaskResultDto>) dataStorageCallback.getDao(TestTaskResultDto.class)).add(fileStream);
-
-		testTaskDto.setTestTaskResult(testTaskResult);
+		getPersistor().streamResult(fileStream);
 	}
 
 	private void advance() {
@@ -306,6 +307,10 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 
 	@Override
 	protected void doInit() throws ConfigurationException, InitializationException {
+		if(testTaskDto.getExecutableTestSuite().getLocalPath()==null) {
+			throw new InitializationException("Required property 'localPath' must be set!");
+		}
+
 		Thread.currentThread().setContextClassLoader(this.getClass().getClassLoader());
 		((BasexTaskProgress) progress).doInit(10);
 	}
@@ -319,7 +324,8 @@ class BasexTestTask<T extends Dto> extends AbstractTestTask {
 	 */
 	private void checkUserParameters() throws IOException, QueryException, InvalidParameterException {
 		// Check parameters by executing the xquery script
-		final String checkParamXqFileName = projectFile.getName().replace(BsxConstants.BSX_ETS_FILE, BsxConstants.PROJECT_CHECK_FILE_SUFFIX);
+		final String checkParamXqFileName = projectFile.getName().replace(BsxConstants.BSX_ETS_FILE,
+				BsxConstants.PROJECT_CHECK_FILE_SUFFIX);
 		final IFile checkParamXqFile = projDir.secureExpandPathDown(checkParamXqFileName);
 		if (checkParamXqFile.exists()) {
 			proc = new QueryProcessor(checkParamXqFile.readContent().toString(), ctx);
