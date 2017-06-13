@@ -1,7 +1,7 @@
 # Test driver for testing large XML files with BaseX XQuery based test projects
 
 [![Apache License 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
-[![Latest version](http://img.shields.io/badge/latest%20version-1.0.5-blue.svg)](http://services.interactive-instruments.de/etfdev-af/release/de/interactive_instruments/etf/testdriver/etf-bsxtd/1.0.5/etf-bsxtd-1.0.5.zip)
+[![Latest version](http://img.shields.io/badge/latest%20version-2.0.0-blue.svg)](http://services.interactive-instruments.de/etfdev-af/release/de/interactive_instruments/etf/testdriver/etf-bsxtd/2.0.0/etf-bsxtd-2.0.0.jar)
 
 The test driver is loaded by the ETF framework at runtime. The test driver
 loads the test data into the integrated [BaseX database](http://basex.org/) and
