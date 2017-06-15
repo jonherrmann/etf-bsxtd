@@ -74,7 +74,7 @@ class BasexTestTask extends AbstractTestTask {
 	private final IFile projectFile;
 	private final IFile projDir;
 	private final long maxDbChunkSize;
-	private final TestResultCollector resultCollector;
+	private TestResultCollector resultCollector;
 
 	static class BasexTaskProgress extends AbstractTestTaskProgress {
 		void doInit(final long maxSteps) {
@@ -111,8 +111,6 @@ class BasexTestTask extends AbstractTestTask {
 		}
 		// this.projectFile = new IFile(testTaskDto.getExecutableTestSuite().getLocalPath());
 		this.projDir = new IFile(projectFile.getParentFile());
-		this.resultCollector = this.getPersistor().getResultCollector();
-
 	}
 
 	@Override
@@ -310,6 +308,8 @@ class BasexTestTask extends AbstractTestTask {
 		if(testTaskDto.getExecutableTestSuite().getLocalPath()==null) {
 			throw new InitializationException("Required property 'localPath' must be set!");
 		}
+
+		this.resultCollector = this.getPersistor().getResultCollector();
 
 		Thread.currentThread().setContextClassLoader(this.getClass().getClassLoader());
 		((BasexTaskProgress) progress).doInit(10);
