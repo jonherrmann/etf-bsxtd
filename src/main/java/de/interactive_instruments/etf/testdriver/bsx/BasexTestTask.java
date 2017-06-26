@@ -146,7 +146,7 @@ class BasexTestTask extends AbstractTestTask {
 		if ("false".equals(testTaskDto.getTestObject().properties().getPropertyOrDefault("indexed", "false"))) {
 			testObjectChanged = true;
 			getLogger().info("Creating new tests databases to speed up tests.");
-		} else if (!Arrays.equals(fileHashVisitor.getHash(), testObject.getItemHash())) {
+		} else if (fileHashVisitor.getHash().equals(testObject.getItemHash())) {
 			// Delete old databases
 			getLogger().info("Recreating new tests databases as the Test Object has changed!");
 			for (int i = 0; i < 10000; i++) {

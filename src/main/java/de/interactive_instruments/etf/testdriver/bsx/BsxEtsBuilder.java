@@ -112,7 +112,7 @@ class BsxEtsBuilder implements TypeBuildingFileVisitor.TypeBuilder<ExecutableTes
 		protected ExecutableTestSuiteDto build() {
 			try {
 				final File file = path.toFile();
-				final byte[] hash = UriUtils.hashFromTimestampOrContent(file.toURI()).getBytes(StandardCharsets.UTF_8);
+				final String hash = UriUtils.hashFromTimestampOrContent(file.toURI());
 				final FileInputStream fileInputStream = new FileInputStream(file);
 				return writeDao.add(fileInputStream, dto -> {
 					dto.setItemHash(hash);
