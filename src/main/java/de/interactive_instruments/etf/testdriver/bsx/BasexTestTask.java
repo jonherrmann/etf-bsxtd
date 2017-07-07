@@ -20,17 +20,16 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Map;
 
-import de.interactive_instruments.etf.testdriver.TestResultCollector;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.RegexFileFilter;
 import org.basex.core.BaseXException;
 import org.basex.core.Context;
-import org.basex.core.cmd.*;
+import org.basex.core.cmd.Close;
+import org.basex.core.cmd.DropDB;
 import org.basex.query.QueryException;
 import org.basex.query.QueryProcessor;
 
@@ -44,6 +43,7 @@ import de.interactive_instruments.etf.model.EID;
 import de.interactive_instruments.etf.model.EidFactory;
 import de.interactive_instruments.etf.testdriver.AbstractTestTask;
 import de.interactive_instruments.etf.testdriver.AbstractTestTaskProgress;
+import de.interactive_instruments.etf.testdriver.TestResultCollector;
 import de.interactive_instruments.etf.testdriver.bsx.partitioning.DatabaseInventarization;
 import de.interactive_instruments.etf.testdriver.bsx.partitioning.DatabasePartitioner;
 import de.interactive_instruments.etf.testdriver.bsx.partitioning.DatabaseVisitor;
@@ -95,7 +95,8 @@ class BasexTestTask extends AbstractTestTask {
 	 * @throws IOException I/O error
 	 * @throws QueryException database error
 	 */
-	public BasexTestTask(final TestTaskDto testTaskDto, final WriteDao<TestObjectDto> testObjectDao, final long maxDbChunkSize) {
+	public BasexTestTask(final TestTaskDto testTaskDto, final WriteDao<TestObjectDto> testObjectDao,
+			final long maxDbChunkSize) {
 		super(testTaskDto, new BasexTaskProgress(), BasexTestTask.class.getClassLoader());
 		this.testObjectDao = testObjectDao;
 
@@ -305,7 +306,7 @@ class BasexTestTask extends AbstractTestTask {
 
 	@Override
 	protected void doInit() throws ConfigurationException, InitializationException {
-		if(testTaskDto.getExecutableTestSuite().getLocalPath()==null) {
+		if (testTaskDto.getExecutableTestSuite().getLocalPath() == null) {
 			throw new InitializationException("Required property 'localPath' must be set!");
 		}
 

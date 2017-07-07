@@ -18,17 +18,13 @@ package de.interactive_instruments.etf.testdriver.bsx;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 
 import javax.xml.xpath.XPath;
-import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.w3c.dom.NodeList;
-import org.xml.sax.InputSource;
 
 import de.interactive_instruments.SUtils;
 import de.interactive_instruments.UriUtils;
@@ -37,7 +33,6 @@ import de.interactive_instruments.etf.dal.dao.Dao;
 import de.interactive_instruments.etf.dal.dao.StreamWriteDao;
 import de.interactive_instruments.etf.dal.dto.test.ExecutableTestSuiteDto;
 import de.interactive_instruments.etf.testdriver.TypeBuildingFileVisitor;
-import de.interactive_instruments.exceptions.StorageException;
 
 /**
  * @author Jon Herrmann ( herrmann aT interactive-instruments doT de )

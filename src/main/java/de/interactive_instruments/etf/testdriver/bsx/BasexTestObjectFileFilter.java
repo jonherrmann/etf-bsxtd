@@ -17,10 +17,8 @@ package de.interactive_instruments.etf.testdriver.bsx;
 
 import java.io.File;
 import java.io.FileFilter;
-import java.nio.file.Path;
 
 import de.interactive_instruments.io.MultiFileFilter;
-import de.interactive_instruments.io.PathFilter;
 
 /**
  * A PathFilter and FileFilter implementation which accepts files with GML
