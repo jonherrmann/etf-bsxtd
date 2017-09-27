@@ -35,16 +35,26 @@ ext.testDataDir = project.hasProperty('etf.td.deployment.dir') ?
 
 
 repositories {
-	mavenLocal()
-
-	// BaseX
-	maven { url 'http://files.basex.org/maven' }
+	maven {
+		url "http://files.basex.org/maven"
+	}
+	maven {
+		url "https://services.interactive-instruments.de/etfdev-af/ext-deegree-cache"
+		credentials {
+			username gradle.rootProject.ext.r_user
+			password gradle.rootProject.ext.r_pwd
+		}
+	}
 }
 
 ext.basexVersion = '8.5.5-ii'
+ext.deegreeVersion = '3.3.20'
+ext.gmlGeoXVersion = '1.2.0'
 
 configurations {
 	compile.exclude group:'xalan'
+    runtime.exclude group: "org.slf4j", module: "slf4j-nop"
+    bsxPlugins
 }
 
 dependencies {
@@ -52,6 +62,7 @@ dependencies {
 	compileOnly group: 'de.interactive_instruments', name: 'ii-commons-util', version:'2.0.0'+project.snapshotSuffix
 	compileOnly group: 'de.interactive_instruments.etf', name: 'etf-core', version:'1.0.0'+project.snapshotSuffix
 	compileOnly group: 'de.interactive_instruments.etf', name: 'etf-spi', version:'1.0.0'+project.snapshotSuffix
+    bsxPlugins group: 'de.interactive_instruments.etf.bsxm', name: 'etf-gmlgeox', version: "$gmlGeoXVersion"+project.snapshotSuffix
 
 	compile group: 'commons-logging', name: 'commons-logging', version:'1.1.1'
 
@@ -65,6 +76,16 @@ dependencies {
 	compileOnly group: 'org.slf4j', name: 'slf4j-api', version: etf_slf4jApiVersion
 
 
+	// Degree core for geometry validation
+	compile("org.deegree:deegree-core-base:$deegreeVersion") {
+		exclude group: 'org.slf4j'
+		exclude group: 'xerces'
+		exclude group: 'xml-apis'
+		exclude group: 'com.h2database'
+		exclude group: 'org.postgis'
+		exclude group: 'postgresql'
+		exclude group: 'commons-logging'
+	}
 
 	// Required by BaseX extensions, must be placed in the lib folder or
 	// the extension class loader will not initialize 3rd party libraries correctly
@@ -104,12 +125,23 @@ jar {
 	}
 }
 
-task copyTdToTdDir(dependsOn: jar) << {
-	copy {
-		from jar
-		into "$testDataDir"
-	}
-	println "Copied test driver to $testDataDir"
+jar {
+    into('plugins') {
+        from configurations.bsxPlugins.copy().setTransitive(false)
+        rename { String fileName ->
+            fileName.replaceAll('-(\\d+)\\.(\\d+)\\.(\\d+)(-SNAPSHOT)?', "")
+        }
+    }
+}
+
+task copyTdToTdDir(dependsOn: jar) {
+    doLast {
+        copy {
+            from jar
+            into "$testDataDir"
+        }
+        println "Copied test driver to $testDataDir"
+    }
 }
 
 install {

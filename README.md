@@ -1,6 +1,6 @@
 # ETF Test Driver for testing XML files with BaseX
 
-The test driver is loaded by the ETF framework at runtime. The test driver 
+The test driver is loaded by the ETF framework at runtime. The test driver
 loads the test data into the integrated [BaseX database](http://basex.org/) and
 executes XQuery data test scripts bundled as ETF project files.
 
