@@ -69,7 +69,7 @@ dependencies {
 	compile group: 'commons-io', name: 'commons-io', version: etf_commonsIoVersion
 
 	// BaseX
-	compileOnly group: 'org.basex', name: 'basex', version: basexVersion
+	compile group: 'org.basex', name: 'basex', version: basexVersion
 
 	compileOnly group: 'net.sf.saxon', name: 'Saxon-HE', version: etf_saxonHe
 
