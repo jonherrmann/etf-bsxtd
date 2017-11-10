@@ -185,7 +185,7 @@ sourceSets {
 }
 
 test {
-	dependsOn = ["clean", "testClasses", "compileTestJava", "deployTestDriverForIntegrationTesting"]
+	dependsOn = ["testClasses", "compileTestJava", "deployTestDriverForIntegrationTesting"]
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
