@@ -34,8 +34,10 @@ import org.basex.core.BaseXException;
 import org.basex.core.Context;
 import org.basex.core.cmd.Close;
 import org.basex.core.cmd.DropDB;
+import org.basex.query.QueryContext;
 import org.basex.query.QueryException;
 import org.basex.query.QueryProcessor;
+import org.basex.query.QueryTracer;
 
 import de.interactive_instruments.IFile;
 import de.interactive_instruments.SUtils;
@@ -256,7 +258,7 @@ class BasexTestTask extends AbstractTestTask {
 
 		// Load the test project as XQuery
 		proc = new QueryProcessor(projectFile.readContent().toString(), ctx);
-		proc.job().listener = info -> getLogger().info(info);
+		proc.jc().tracer = (message, queryContext) -> getLogger().info(message);
 
 		// Bind script variables
 		// Workaround: Wrap File around URI for a clean path or basex will
