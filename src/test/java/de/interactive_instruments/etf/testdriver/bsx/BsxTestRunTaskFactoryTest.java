@@ -19,27 +19,11 @@
  */
 package de.interactive_instruments.etf.testdriver.bsx;
 
-import static de.interactive_instruments.etf.test.DataStorageTestUtils.DATA_STORAGE;
-import static de.interactive_instruments.etf.testdriver.bsx.BsxTestDriver.BSX_TEST_DRIVER_EID;
-import static org.junit.Assert.*;
-
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.Collections;
-import java.util.Date;
-
-import org.junit.BeforeClass;
-import org.junit.FixMethodOrder;
-import org.junit.Test;
-import org.junit.runners.MethodSorters;
-import org.slf4j.LoggerFactory;
-
 import de.interactive_instruments.IFile;
-import de.interactive_instruments.SUtils;
-import de.interactive_instruments.XmlUtils;
 import de.interactive_instruments.etf.EtfConstants;
 import de.interactive_instruments.etf.component.ComponentNotLoadedException;
+import de.interactive_instruments.etf.dal.dao.DataStorage;
+import de.interactive_instruments.etf.dal.dao.DataStorageRegistry;
 import de.interactive_instruments.etf.dal.dao.WriteDao;
 import de.interactive_instruments.etf.dal.dao.basex.BsxDataStorage;
 import de.interactive_instruments.etf.dal.dto.capabilities.ResourceDto;
@@ -50,13 +34,29 @@ import de.interactive_instruments.etf.dal.dto.run.TestRunDto;
 import de.interactive_instruments.etf.dal.dto.run.TestTaskDto;
 import de.interactive_instruments.etf.dal.dto.test.ExecutableTestSuiteDto;
 import de.interactive_instruments.etf.dal.dto.translation.TranslationArgumentCollectionDto;
+import de.interactive_instruments.etf.detector.TestObjectTypeDetectorManager;
 import de.interactive_instruments.etf.model.EID;
 import de.interactive_instruments.etf.model.EidFactory;
+import de.interactive_instruments.etf.model.EidMap;
 import de.interactive_instruments.etf.test.DataStorageTestUtils;
 import de.interactive_instruments.etf.testdriver.*;
 import de.interactive_instruments.exceptions.*;
 import de.interactive_instruments.exceptions.config.ConfigurationException;
 import de.interactive_instruments.properties.PropertyUtils;
+import org.junit.BeforeClass;
+import org.junit.FixMethodOrder;
+import org.junit.Test;
+import org.junit.runners.MethodSorters;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Collections;
+import java.util.Date;
+
+import static de.interactive_instruments.etf.testdriver.bsx.BsxTestDriver.BSX_TEST_DRIVER_EID;
+import static org.junit.Assert.*;
 
 /**
  *
@@ -69,6 +69,7 @@ public class BsxTestRunTaskFactoryTest {
 	// DO NOT RUN THE TESTS IN THE IDE BUT WITH GRADLE
 
 	private static TestDriverManager testDriverManager = null;
+	private static DataStorage DATA_STORAGE;
 
 	private final static EID geometryEtsId = EidFactory.getDefault()
 			.createAndPreserveStr("99b8aecd-4082-4773-b316-a138e6ed8b35");
@@ -122,6 +123,45 @@ public class BsxTestRunTaskFactoryTest {
 		return testRunDto;
 	}
 
+	private static DataStorage ensureInitialization() throws ConfigurationException, InvalidStateTransitionException,
+			InitializationException, IOException {
+		if (DATA_STORAGE==null || !DATA_STORAGE.isInitialized()) {
+			DATA_STORAGE = new BsxDataStorage();
+			final IFile DATA_STORAGE_DIR;
+			if (System.getenv("ETF_DS_DIR") != null) {
+				DATA_STORAGE_DIR = new IFile(System.getenv("ETF_DS_DIR"));
+				DATA_STORAGE_DIR.mkdirs();
+			} else if (new IFile("./build").exists()) {
+				DATA_STORAGE_DIR = new IFile("./build/tmp/etf-ds");
+				DATA_STORAGE_DIR.mkdirs();
+			} else {
+				DATA_STORAGE_DIR = null;
+			}
+
+			if (DATA_STORAGE_DIR == null || !DATA_STORAGE_DIR.exists()) {
+				throw new InitializationException("DATA_STORAGE_DIR not set");
+			}
+			DATA_STORAGE.getConfigurationProperties().setProperty(EtfConstants.ETF_DATASOURCE_DIR,
+					DATA_STORAGE_DIR.getAbsolutePath());
+			DATA_STORAGE.getConfigurationProperties().setProperty("etf.webapp.base.url", "http://localhost/etf-webapp");
+			DATA_STORAGE.getConfigurationProperties().setProperty("etf.api.base.url", "http://localhost/etf-webapp/v2");
+			DATA_STORAGE.init();
+			DataStorageRegistry.instance().register(DATA_STORAGE);
+
+			final WriteDao<TestObjectTypeDto> testObjectTypeDao = ((WriteDao<TestObjectTypeDto>) (DATA_STORAGE
+					.getDao(TestObjectTypeDto.class)));
+
+			final EidMap<TestObjectTypeDto> supportedTypes = TestObjectTypeDetectorManager.getSupportedTypes();
+			if (supportedTypes != null) {
+				testObjectTypeDao.deleteAllExisting(supportedTypes.keySet());
+				for (final TestObjectTypeDto testObjectTypeDto : supportedTypes.values()) {
+					testObjectTypeDao.add(testObjectTypeDto);
+				}
+			}
+		}
+		return DATA_STORAGE;
+	}
+
 	@BeforeClass
 	public static void setUp()
 			throws IOException, ConfigurationException, InvalidStateTransitionException,
@@ -132,7 +172,8 @@ public class BsxTestRunTaskFactoryTest {
 		// Init logger
 		LoggerFactory.getLogger(BsxTestRunTaskFactoryTest.class).info("Started");
 
-		DataStorageTestUtils.ensureInitialization();
+		DATA_STORAGE = ensureInitialization();
+
 		if (testDriverManager == null) {
 
 			// Delete old ETS
