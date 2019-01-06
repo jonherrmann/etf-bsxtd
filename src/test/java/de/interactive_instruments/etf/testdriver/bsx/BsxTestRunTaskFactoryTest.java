@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 European Union, interactive instruments GmbH
+ * Copyright 2017-2019 European Union, interactive instruments GmbH
  * Licensed under the EUPL, Version 1.2 or - as soon they will be approved by
  * the European Commission - subsequent versions of the EUPL (the "Licence");
  * You may not use this work except in compliance with the Licence.
@@ -18,6 +18,21 @@
  * through Action 1.17: A Reusable INSPIRE Reference Platform (ARE3NA).
  */
 package de.interactive_instruments.etf.testdriver.bsx;
+
+import static de.interactive_instruments.etf.testdriver.bsx.BsxTestDriver.BSX_TEST_DRIVER_EID;
+import static org.junit.Assert.*;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Collections;
+import java.util.Date;
+
+import org.junit.BeforeClass;
+import org.junit.FixMethodOrder;
+import org.junit.Test;
+import org.junit.runners.MethodSorters;
+import org.slf4j.LoggerFactory;
 
 import de.interactive_instruments.IFile;
 import de.interactive_instruments.etf.EtfConstants;
@@ -43,20 +58,6 @@ import de.interactive_instruments.etf.testdriver.*;
 import de.interactive_instruments.exceptions.*;
 import de.interactive_instruments.exceptions.config.ConfigurationException;
 import de.interactive_instruments.properties.PropertyUtils;
-import org.junit.BeforeClass;
-import org.junit.FixMethodOrder;
-import org.junit.Test;
-import org.junit.runners.MethodSorters;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.Collections;
-import java.util.Date;
-
-import static de.interactive_instruments.etf.testdriver.bsx.BsxTestDriver.BSX_TEST_DRIVER_EID;
-import static org.junit.Assert.*;
 
 /**
  *
@@ -125,7 +126,7 @@ public class BsxTestRunTaskFactoryTest {
 
 	private static DataStorage ensureInitialization() throws ConfigurationException, InvalidStateTransitionException,
 			InitializationException, IOException {
-		if (DATA_STORAGE==null || !DATA_STORAGE.isInitialized()) {
+		if (DATA_STORAGE == null || !DATA_STORAGE.isInitialized()) {
 			DATA_STORAGE = new BsxDataStorage();
 			final IFile DATA_STORAGE_DIR;
 			if (System.getenv("ETF_DS_DIR") != null) {
