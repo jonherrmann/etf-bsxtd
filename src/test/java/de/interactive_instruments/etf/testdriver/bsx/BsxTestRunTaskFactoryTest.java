@@ -53,7 +53,6 @@ import de.interactive_instruments.etf.detector.TestObjectTypeDetectorManager;
 import de.interactive_instruments.etf.model.EID;
 import de.interactive_instruments.etf.model.EidFactory;
 import de.interactive_instruments.etf.model.EidMap;
-import de.interactive_instruments.etf.test.DataStorageTestUtils;
 import de.interactive_instruments.etf.testdriver.*;
 import de.interactive_instruments.exceptions.*;
 import de.interactive_instruments.exceptions.config.ConfigurationException;
