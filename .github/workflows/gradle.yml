@@ -17,3 +17,14 @@ jobs:
         uses: gradle/gradle-build-action@v2
       - name: Execute Gradle build
         run: ./gradlew jar
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          draft: true
+          files: |
+            testdriver-legacy/build/libs/etf-bsxtd-legacy-*.jar
+            testdriver/build/libs/etf-bsxtd-*.jar
+            testdriver-bridge/build/libs/etf-extensions.xar
+            topox/build/libs/etf-topox.xar
+            gmlgeox/build/libs/etf-gmlgeox.xar
