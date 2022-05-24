@@ -1,0 +1,76 @@
+/*
+ * Copyright 2010-2020 interactive instruments GmbH
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import org.gradle.api.internal.tasks.testing.AbstractTestDescriptor
+import org.gradle.api.tasks.bundling.Jar
+
+import java.lang.reflect.Field
+import java.lang.reflect.Modifier
+// Fix for https://github.com/gradle/gradle/issues/5975
+void fixName(Object testDescriptor) {
+    def field = AbstractTestDescriptor.class.getDeclaredField("name")
+    field.setAccessible(true)
+    Field modifiersField = Field.class.getDeclaredField("modifiers")
+    modifiersField.setAccessible(true)
+    modifiersField.setInt(field, field.getModifiers() & ~Modifier.FINAL)
+    final String name = testDescriptor.getDisplayName()
+    field.set(testDescriptor.descriptor, name)
+}
+
+sourceSets {
+    test {
+        resources {
+            srcDir 'src/test/resources'
+            srcDir 'src/main/resources'
+        }
+    }
+}
+
+test {
+    dependsOn = ["xar"]
+
+    minHeapSize = "1024m"
+    maxHeapSize = "2048m"
+
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+
+    beforeTest { suite ->
+        fixName(suite)
+    }
+    afterTest { descriptor, result ->
+        println "\n$descriptor.className [$descriptor.classDisplayName] > $descriptor.name: $result.resultType"
+    }
+}
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+artifacts {
+    xarFile xar
+    archives xar
+    archives sourcesJar
+}
+
+install {
+    dependsOn = ["xar", "sourcesJar"]
+}
+
+jar.finalizedBy("xar")

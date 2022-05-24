@@ -1,0 +1,16 @@
+de.interactive_instruments.etf.bsxm
+nl.vrom.roo.core.util
+nl.vrom.roo.util
+nl.vrom.roo.validator.core
+nl.vrom.roo.validator.core.dom4j
+nl.vrom.roo.validator.core.dom4j.handlers
+nl.vrom.roo.validator.core.errorlocation
+nl.vrom.roo.validator.core.exception
+nl.vrom.roo.validator.core.impl
+nl.vrom.roo.validator.core.reporting
+nl.vrom.roo.validator.core.reporting.exception
+nl.vrom.roo.validator.core.util
+nl.vrom.roo.validator.core.validation
+nl.vrom.roo.gmlgeox.validation.exception
+nl.vrom.roo.gmlgeox.validation.impl
+nl.vrom.roo.gmlgeox.validation.resolver
